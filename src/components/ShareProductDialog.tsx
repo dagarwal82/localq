@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +18,6 @@ export function ShareProductDialog({ listingId, listingKey, listingName }: Share
   
   const publicBase = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "");
   const listingUrl = `${publicBase}/listing/${listingId}?k=${listingKey}`;
-  // QR code endpoint should encode the full public URL with key
-  const qrCodeUrl = `${publicBase}/api/listings/public/${listingId}/qrcode?key=${encodeURIComponent(listingKey)}`;
 
   const handleCopyLink = async () => {
     try {
@@ -55,11 +54,7 @@ export function ShareProductDialog({ listingId, listingKey, listingName }: Share
         </DialogHeader>
         <div className="flex flex-col items-center space-y-4">
           <div className="bg-white p-4 rounded-md" data-testid={`qr-code-${listingId}`}>
-            <img 
-              src={qrCodeUrl} 
-              alt={`QR code for ${listingName}`}
-              className="w-[200px] h-[200px]"
-            />
+            <QRCodeSVG value={listingUrl} size={200} includeMargin={true} />
           </div>
           <div className="w-full space-y-2">
             <label className="text-sm font-medium text-foreground">Or copy the link</label>
