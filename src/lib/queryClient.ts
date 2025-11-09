@@ -19,7 +19,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<any> {
-  const API_URL = import.meta.env.VITE_API_URL || '';
+  const API_URL = import.meta.env.VITE_API_URL || 'https://api.spacevox.com';
   let headers: Record<string, string> = {};
   let body: any = undefined;
   if (data instanceof FormData) {
@@ -53,7 +53,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const API_URL = import.meta.env.VITE_API_URL || '';
+    const API_URL = import.meta.env.VITE_API_URL || 'https://api.spacevox.com';
   const path = queryKey.join("/") as string;
   const fullUrl = join(API_URL, path);
     const res = await fetch(fullUrl, {
