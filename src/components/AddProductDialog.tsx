@@ -224,7 +224,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
                 Cancel
               </Button>
               <Button type="submit" className="flex-1" data-testid="button-submit-product">
-                Create Listing
+                Add Item
               </Button>
             </div>
           </form>

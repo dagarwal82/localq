@@ -6,11 +6,13 @@ import { AddProductDialog } from "../components/AddProductDialog";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Package, RefreshCw, LogOut, Shield } from "lucide-react";
+import { performLogout } from "../lib/authUtils";
 import { useToast } from "../hooks/use-toast";
 import ListingManagerDialog from "../components/ListingManagerDialog";
 import type { Listing } from "../types/listing";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { GarageSaleLogo } from "../components/GarageSaleLogo";
 // Local type definitions for Product and BuyerInterest
 // Matches ProductDTO from OpenAPI spec
 export interface Product {
@@ -228,8 +230,8 @@ export default function Home() {
       <header className="sticky top-0 z-40 bg-background border-b border-border">
           <div className="container max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Package className="w-6 h-6 text-primary" />
+            <div className="flex items-center gap-3">
+              <GarageSaleLogo size={32} className="text-primary" />
               <h1 className="text-xl font-semibold text-foreground">SpaceVox</h1>
             </div>
             <div className="flex items-center gap-2">
@@ -248,7 +250,10 @@ export default function Home() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => {
+                onClick={async () => {
+                  // Call backend logout; regardless of result, clear caches and redirect
+                  await performLogout();
+                  await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
                   queryClient.clear();
                   window.location.href = "/";
                 }}

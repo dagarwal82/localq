@@ -6,6 +6,7 @@ import { Package, QrCode, Users } from "lucide-react";
 import { AuthForm } from "../components/AuthForm";
 import { Dialog, DialogContent } from "../components/ui/dialog";
 import { apiRequest } from "../lib/queryClient";
+import { GarageSaleLogo } from "../components/GarageSaleLogo";
 
 export default function Landing() {
   const [showAuth, setShowAuth] = useState(false);
@@ -46,7 +47,10 @@ export default function Landing() {
       
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold" data-testid="text-app-title">SpaceVox</h1>
+          <div className="flex items-center gap-3">
+            <GarageSaleLogo size={40} className="text-primary" />
+            <h1 className="text-2xl font-bold" data-testid="text-app-title">SpaceVox</h1>
+          </div>
           <Button
             onClick={() => {
               sessionStorage.setItem("postAuthRedirect", "/home");
@@ -81,9 +85,6 @@ export default function Landing() {
               >
                 Sign Up to Create Listings
               </Button>
-              <p className="text-sm text-muted-foreground">
-                Login with Google or Email
-              </p>
             </div>
           </div>
 
@@ -123,7 +124,7 @@ export default function Landing() {
 
       <footer className="border-t py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p data-testid="text-footer">SpaceVox - Simplifying Marketplace Sales</p>
+          <p data-testid="text-footer">SpaceVox - Simplifying Local Marketplace Sales</p>
         </div>
       </footer>
     </div>
