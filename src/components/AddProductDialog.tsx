@@ -72,7 +72,8 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
       const productRes = await apiRequest("POST", "/api/products", {
         title: values.title,
         description: values.description,
-        price: values.price,
+        // Backend stores price in cents; convert dollars -> cents
+        price: Math.round((values.price || 0) * 100),
         listingId: values.listingId,
       });
       const productId = productRes.id;

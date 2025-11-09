@@ -92,9 +92,11 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
 
   const handleApprove = async (queueId: string, opts?: { shareAddress?: boolean }) => {
     try {
-      // Extend approve endpoint to include optional sharing directives (backend must support)
-      const params = new URLSearchParams({ queueId });
-      if (opts?.shareAddress) params.append("shareAddress", "true");
+      // Always include shareAddress flag to satisfy backend expectation
+      const params = new URLSearchParams({
+        queueId,
+        shareAddress: String(!!opts?.shareAddress),
+      });
       await apiRequest("POST", `/api/buying-queue/approve?${params.toString()}`);
       queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
       toast({

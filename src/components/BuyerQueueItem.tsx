@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { Clock, DollarSign, Mail, ChevronDown, ChevronUp, Check, X, EyeOff, MapPin, Share2 } from "lucide-react";
+import { Clock, DollarSign, Mail, ChevronDown, ChevronUp, Check, X, EyeOff, MapPin, Share2, History } from "lucide-react";
 import type { BuyerInterest } from "../pages/Home";
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface BuyerQueueItemProps {
   buyer: BuyerInterest;
@@ -21,6 +23,7 @@ interface BuyerQueueItemProps {
 export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false, onApprove, onDeny, ownerAddress, onShareContact }: BuyerQueueItemProps) {
   const [showContact, setShowContact] = useState(false);
   const [shareAddress, setShareAddress] = useState(false); // owner choosing to share pickup address pre-approval
+  const [showHistory, setShowHistory] = useState(false);
   
   const formatPrice = (cents: number | null) => {
     if (cents === null) return "FREE";
@@ -46,6 +49,24 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
   const hasContact = !!buyer.buyerEmail || !!buyer.phone;
   // Only owners can see contact if buyer opted-in, and buyers always see their own
   const canSeeContact = (isSelf || (isOwner && buyer.shareContact)) && hasContact;
+
+  // History fetching (per-interest), only for owner or the buyer themselves
+  type BuyingQueueHistory = {
+    id?: string;
+    priorStatus: string;
+    newStatus: string;
+    actorEmail?: string | null;
+    offerPrice?: number | null; // cents (aligning with main API)
+    pickupTime?: string | null; // ISO
+    shareContact?: boolean;
+    shareAddress?: boolean;
+    createdAt?: string;
+  };
+  const { data: history = [], isLoading: historyLoading, error: historyError } = useQuery<BuyingQueueHistory[]>({
+    queryKey: ["/api/buying-queue", buyer.id, "history"],
+    queryFn: async () => apiRequest("GET", `/api/buying-queue/${buyer.id}/history`),
+    enabled: (isOwner || isSelf) && showHistory,
+  });
 
   return (
     <div
@@ -123,6 +144,19 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
               {showContact ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </Button>
           )}
+
+          {(isOwner || isSelf) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setShowHistory(!showHistory)}
+              data-testid={`button-toggle-history-${buyer.id}`}
+              title="View history"
+            >
+              <History className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -145,6 +179,53 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
               <Share2 className="w-4 h-4" />
               <span>{buyer.phone}</span>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* History Panel */}
+      {(isOwner || isSelf) && showHistory && (
+        <div className="px-3 pb-3 border-t border-border pt-2" data-testid={`div-history-${buyer.id}`}>
+          {historyLoading && (
+            <p className="text-xs text-muted-foreground">Loading history…</p>
+          )}
+          {historyError && (
+            <p className="text-xs text-destructive">Failed to load history</p>
+          )}
+          {!historyLoading && !historyError && history.length === 0 && (
+            <p className="text-xs text-muted-foreground">No history yet.</p>
+          )}
+          {!historyLoading && !historyError && history.length > 0 && (
+            <ul className="space-y-2">
+              {history.map((h, idx) => (
+                <li key={h.id || idx} className="text-xs text-muted-foreground">
+                  <div className="flex items-start gap-2">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="font-medium text-foreground">{h.priorStatus}</span>
+                      <span>→</span>
+                      <span className="font-medium text-foreground">{h.newStatus}</span>
+                    </span>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                    {typeof h.offerPrice === 'number' && (
+                      <span>Offer: ${ (h.offerPrice / 100).toFixed(2) }</span>
+                    )}
+                    {h.pickupTime && (
+                      <span>Pickup: {(() => { try { return format(new Date(h.pickupTime), "MMM d, h:mm a"); } catch { return h.pickupTime; } })()}</span>
+                    )}
+                    {typeof h.shareContact === 'boolean' && (
+                      <span>{h.shareContact ? 'Contact shared' : 'Contact hidden'}</span>
+                    )}
+                    {typeof h.shareAddress === 'boolean' && h.shareAddress && (
+                      <span>Address shared</span>
+                    )}
+                    {h.actorEmail && (
+                      <span>By: {isSelf && h.actorEmail?.toLowerCase() === (buyer.buyerEmail || '').toLowerCase() ? 'you' : h.actorEmail}</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}
