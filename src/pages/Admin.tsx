@@ -130,8 +130,9 @@ export default function Admin() {
 
   // No authentication logic needed; always show admin panel
 
-  const formatPrice = (cents: number) => {
-    return `$${(cents / 100).toFixed(2)}`;
+  // Backend now returns price as decimal dollars (e.g., 25.50)
+  const formatPrice = (amount: number) => {
+    return `$${Number(amount).toFixed(2)}`;
   };
 
   const activeProducts = allProducts.filter(p => p.status === "active");

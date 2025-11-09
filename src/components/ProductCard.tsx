@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Package, Clock, DollarSign, Users, ChevronDown, ChevronUp, CalendarDays, MapPin } from "lucide-react";
+import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
+import { cn } from "@/lib/utils";
 import type { Product, BuyerInterest } from "@/pages/Home";
 import type { ProductImage } from "@/pages/Home";
 import type { Listing } from "@/types/listing";
@@ -29,6 +31,8 @@ interface ProductCardProps {
 
 export function ProductCard({ product, listing, isOwner = false, onMarkSold, onRemove }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [carouselApi, setCarouselApi] = useState<any>(null);
   const { data: buyers = [] } = useQuery<BuyerInterest[]>({
     queryKey: ["/api/buying-queue/product", product.id],
     queryFn: async () => apiRequest("GET", `/api/buying-queue/product/${product.id}`),
@@ -44,11 +48,12 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   
   // Backend returns statuses like PENDING, MISSED, etc.
   const activeBuyers = buyers
-    .filter(b => b.status !== "MISSED" && b.status !== "DENIED")
+    .filter(b => b.status !== "MISSED" && b.status !== "DENIED" && b.status !== "WITHDRAW" && b.status !== "WITHDRAWN")
     .sort((a, b) => (a.queuePosition ?? 0) - (b.queuePosition ?? 0));
   const nextBuyer = activeBuyers[0];
   const missedBuyers = buyers.filter(b => b.status === "MISSED");
   const deniedBuyers = buyers.filter(b => b.status === "DENIED");
+  const withdrawnBuyers = buyers.filter(b => b.status === "WITHDRAW" || b.status === "WITHDRAWN");
   const { toast } = useToast();
   const [interestOpen, setInterestOpen] = useState(false);
   const [editingInterest, setEditingInterest] = useState(false);
@@ -65,9 +70,12 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const myInterest =
     buyers.find(b => (storedInterestId && b.id === storedInterestId)) ||
     buyers.find(b => (b.buyerEmail && me?.email) ? b.buyerEmail.toLowerCase() === me.email.toLowerCase() : false);
-  const hasMyInterest = !!myInterest;
+  // Treat withdrawn as effectively not having an active interest so user can rejoin
+  const hasMyInterest = !!myInterest && !(myInterest.status === "WITHDRAW" || myInterest.status === "WITHDRAWN");
   const isApproved = myInterest?.status === "APPROVED";
   const isDenied = myInterest?.status === "DENIED";
+  const isWithdrawn = myInterest?.status === "WITHDRAW" || myInterest?.status === "WITHDRAWN";
+  const hasPendingMine = myInterest?.status === "PENDING";
   const isNextMe = !!(nextBuyer && (
     (storedInterestId && nextBuyer.id === storedInterestId) ||
     ((nextBuyer?.buyerEmail && me?.email) && nextBuyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
@@ -86,8 +94,9 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     }
   };
 
-  const formatPrice = (cents: number) => {
-    return `$${(cents / 100).toFixed(2)}`;
+  // Backend supplies product.price as decimal dollars (e.g., 25.50)
+  const formatPrice = (amount: number) => {
+    return `$${Number(amount).toFixed(2)}`;
   };
 
   const handleApprove = async (queueId: string, opts?: { shareAddress?: boolean }) => {
@@ -169,12 +178,13 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     }
     setSubmitting(true);
     try {
-      const pickupDate = new Date(pickupTime);
-      const priceNumber = parseFloat(offerPrice || "0");
+  const pickupDate = new Date(pickupTime);
+  // Backend expects a decimal (e.g., 25.50), not cents
+  const priceNumber = Math.round(parseFloat(offerPrice || "0") * 100) / 100;
       const created = await apiRequest("POST", "/api/buying-queue", {
         productId: product.id,
         pickupTime: pickupDate,
-        offerPrice: isFree ? null : Math.round(priceNumber * 100),
+  offerPrice: isFree ? null : priceNumber,
         hideMe: hideOffer,
         shareContact: shareContact,
       });
@@ -211,7 +221,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
         .toISOString()
         .slice(0, 16);
       setPickupTime(localDateTime);
-      setOfferPrice(myInterest.offerPrice ? (myInterest.offerPrice / 100).toString() : "0");
+  setOfferPrice(myInterest.offerPrice ? (myInterest.offerPrice).toString() : "0");
       setIsFree(!myInterest.offerPrice);
       setEditingInterest(true);
       setInterestOpen(true);
@@ -232,15 +242,16 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     
     setSubmitting(true);
     try {
-      const pickupDate = new Date(pickupTime);
-      const priceNumber = parseFloat(offerPrice || "0");
+  const pickupDate = new Date(pickupTime);
+  // Backend expects a decimal (e.g., 25.50), not cents
+  const priceNumber = Math.round(parseFloat(offerPrice || "0") * 100) / 100;
       
       // Update the interest - if approved or denied, will reset to pending for re-review
       const updated = await apiRequest("PUT", "/api/buying-queue", {
         id: myInterest.id,
         productId: product.id,
         pickupTime: pickupDate,
-        offerPrice: isFree ? null : Math.round(priceNumber * 100),
+  offerPrice: isFree ? null : priceNumber,
         hideMe: hideOffer,
         shareContact: shareContact,
         status: (isApproved || isDenied) ? "PENDING" : myInterest.status, // Reset to pending if was approved or denied
@@ -331,27 +342,78 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     }
   };
 
+  // Track current slide for dots indicator when carousel is present
+  useEffect(() => {
+    if (!carouselApi) return;
+    const onSelect = () => {
+      try {
+        const idx = carouselApi.selectedScrollSnap();
+        setCurrentSlide(typeof idx === 'number' ? idx : 0);
+      } catch {
+        // noop
+      }
+    };
+    onSelect();
+    carouselApi.on("select", onSelect);
+    carouselApi.on("reInit", onSelect);
+    return () => {
+      try {
+        carouselApi.off("select", onSelect);
+        carouselApi.off("reInit", onSelect);
+      } catch {
+        // ignore
+      }
+    };
+  }, [carouselApi]);
+
   return (
     <Card className="overflow-hidden hover-elevate" data-testid={`card-product-${product.id}`}>
       <div className="relative">
         {product.images && product.images.length > 0 ? (
-          <div className="relative w-full aspect-square bg-muted group">
-            {product.images.map((image: ProductImage, index) => (
+          product.images.length === 1 ? (
+            <div className="relative w-full aspect-square bg-muted">
               <img
-                key={index}
-                src={image.url}
-                alt={`${product.title} - Image ${index + 1}`}
-                className={`absolute w-full h-full object-cover transition-opacity duration-300
-                  ${index === 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                data-testid={`img-product-${product.id}-${index}`}
+                src={product.images[0].url}
+                alt={`${product.title} - Image 1`}
+                className="absolute w-full h-full object-cover"
+                data-testid={`img-product-${product.id}-0`}
               />
-            ))}
-            {product.images.length > 1 && (
-              <Badge className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm">
-                {product.images.length} images
-              </Badge>
-            )}
-          </div>
+            </div>
+          ) : (
+            <Carousel className="w-full" opts={{ loop: product.images.length > 1 }} setApi={setCarouselApi}>
+              <CarouselContent className="aspect-square">
+                {product.images.map((image: ProductImage, index) => (
+                  <CarouselItem key={index} className="p-0">
+                    <div className="relative w-full h-full bg-muted">
+                      <img
+                        src={image.url}
+                        alt={`${product.title} - Image ${index + 1}`}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        data-testid={`img-product-${product.id}-${index}`}
+                      />
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="-left-3 top-1/2 -translate-y-1/2 bg-background/70 backdrop-blur-sm border" />
+              <CarouselNext className="-right-3 top-1/2 -translate-y-1/2 bg-background/70 backdrop-blur-sm border" />
+              {/* Dots indicator */}
+              <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2">
+                {product.images.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => carouselApi?.scrollTo(i)}
+                    className={cn(
+                      "h-2.5 w-2.5 rounded-full border border-white/60 transition-colors",
+                      i === currentSlide ? "bg-white" : "bg-white/20"
+                    )}
+                    aria-label={`Go to image ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </Carousel>
+          )
         ) : (
           <div className="relative w-full aspect-square bg-muted flex items-center justify-center">
             <Package className="w-16 h-16 text-muted-foreground" />
@@ -367,7 +429,6 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
         <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`text-description-${product.id}`}>{product.description}</p>
         
         <div className="flex items-center gap-2 text-sm">
-          <DollarSign className="w-4 h-4 text-muted-foreground" />
           <span className="font-medium text-foreground" data-testid={`text-price-${product.id}`}>{formatPrice(product.price)}</span>
         </div>
 
@@ -404,7 +465,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       Pickup time: {format(new Date(nextBuyer.pickupTime), "MMM d, h:mm a")}
                     </p>
                     <p className="text-xs text-green-700 dark:text-green-400 mt-0.5" data-testid={`text-approved-self-price-${product.id}`}>
-                      Your price: {nextBuyer.offerPrice == null ? "FREE" : `$${(nextBuyer.offerPrice / 100).toFixed(2)}`}
+                      Your price: {nextBuyer.offerPrice == null ? "FREE" : `$${Number(nextBuyer.offerPrice).toFixed(2)}`}
                     </p>
                   </>
                 ) : (
@@ -419,7 +480,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                     )}
                     {isOwner && (
                       <p className="text-xs text-green-700 dark:text-green-400 mt-1" data-testid={`text-approved-owner-price-${product.id}`}>
-                        Approved price: {nextBuyer.offerPrice == null ? "FREE" : `$${(nextBuyer.offerPrice / 100).toFixed(2)}`}
+                        Approved price: {nextBuyer.offerPrice == null ? "FREE" : `$${Number(nextBuyer.offerPrice).toFixed(2)}`}
                       </p>
                     )}
                     {isOwner && nextBuyer.pickupAddress && (
@@ -489,6 +550,27 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                     />
                   );
                 })}
+                {withdrawnBuyers.map((buyer) => {
+                  const isSelf = !!(
+                    (storedInterestId && buyer.id === storedInterestId) ||
+                    (buyer.buyerEmail && me?.email && buyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
+                  );
+                  // Show withdrawn only to owner/admin or the withdrawn buyer
+                  if (!isOwner && !isSelf) return null;
+                  return (
+                    <BuyerQueueItem
+                      key={buyer.id}
+                      buyer={buyer}
+                      isNext={false}
+                      isOwner={isOwner}
+                      isSelf={isSelf}
+                      ownerAddress={listing?.pickupAddress || product.location || undefined}
+                      onApprove={handleApprove}
+                      onDeny={handleDeny}
+                      onShareContact={handleShareContact}
+                    />
+                  );
+                })}
                 {deniedBuyers.map((buyer) => {
                   const isSelf = !!(
                     (storedInterestId && buyer.id === storedInterestId) ||
@@ -510,7 +592,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                     />
                   );
                 })}
-                {activeBuyers.length === 0 && missedBuyers.length === 0 && deniedBuyers.length === 0 && (
+                {activeBuyers.length === 0 && missedBuyers.length === 0 && deniedBuyers.length === 0 && withdrawnBuyers.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No buyers in queue
                   </p>
@@ -565,7 +647,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       {/* Buyer Interest Controls - only when NOT owner */}
       {product.status === "AVAILABLE" && !isOwner && listing && !isProductOwner && (
         <CardFooter className="p-4 pt-0 flex flex-col gap-2">
-          {hasMyInterest ? (
+          {hasPendingMine ? (
             <>
               <div className="flex flex-col gap-1 w-full">
                 <div className="flex gap-2 w-full">
@@ -589,16 +671,6 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                     {withdrawing ? "Withdrawing..." : "Withdraw"}
                   </Button>
                 </div>
-                {(isApproved || isDenied) && (
-                  <p className="text-xs text-muted-foreground text-center" data-testid={`text-edit-reset-warning-${product.id}`}>
-                    Editing your interest will resubmit it for owner review
-                  </p>
-                )}
-                {isDenied && (
-                  <p className="text-xs text-red-600 dark:text-red-400 text-center" data-testid={`text-denied-hint-${product.id}`}>
-                    Your previous offer was denied. You can adjust and resubmit.
-                  </p>
-                )}
               </div>
             </>
           ) : (

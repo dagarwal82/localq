@@ -12,6 +12,7 @@ import Admin from "./pages/Admin";
 import JoinProduct from "./pages/JoinProduct";
 import ListingPage from "./pages/ListingPage";
 import NotFound from "./pages/not-found";
+import LegalPage from "./pages/LegalPage";
 
 function Router() {
 
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/listing/:listingId" component={ListingPage} />
       <Route path="/join/:productId" component={JoinProduct} />
+      <Route path="/legal/:slug" component={LegalPage} />
       <Route component={NotFound} />
     </Switch>
   );

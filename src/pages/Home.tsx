@@ -5,7 +5,7 @@ import { ProductCard } from "../components/ProductCard";
 import { AddProductDialog } from "../components/AddProductDialog";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Package, RefreshCw, LogOut, Shield, ChevronDown } from "lucide-react";
+import { Package, RefreshCw, LogOut, MoreHorizontal, ChevronDown } from "lucide-react";
 import { performLogout } from "../lib/authUtils";
 import { useToast } from "../hooks/use-toast";
 import ListingManagerDialog from "../components/ListingManagerDialog";
@@ -237,10 +237,10 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-4xl mx-auto px-3 py-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+          <a href="https://spacevox.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 min-w-0 hover:opacity-90 transition" aria-label="SpaceVox website">
             <GarageSaleLogo size={28} className="text-primary flex-shrink-0" />
             <h1 className="text-lg font-semibold tracking-tight truncate">SpaceVox</h1>
-          </div>
+          </a>
           {/* Mobile primary actions */}
           <div className="flex items-center gap-1">
             {/* Always show quick add */}
@@ -412,7 +412,7 @@ function DetailsMenu() {
     <details ref={detailsRef} className="group [&_summary::-webkit-details-marker]:hidden">
       <summary className="flex items-center justify-center rounded-md border border-border h-9 w-9 cursor-pointer hover:bg-muted transition-colors">
         <span className="sr-only">Open menu</span>
-        <Shield className="w-5 h-5 text-muted-foreground group-open:hidden" />
+        <MoreHorizontal className="w-5 h-5 text-muted-foreground group-open:hidden" />
         <ChevronDown className="w-5 h-5 text-muted-foreground hidden group-open:block" />
       </summary>
       <div className="absolute right-2 mt-2 w-56 rounded-md border border-border bg-popover p-2 shadow-md flex flex-col gap-1 z-50">

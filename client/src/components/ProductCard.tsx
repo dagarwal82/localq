@@ -37,8 +37,9 @@ export function ProductCard({ product, buyers, onMarkSold, onRemove, onAddBuyer 
     }
   };
 
-  const formatPrice = (cents: number) => {
-    return `$${(cents / 100).toFixed(2)}`;
+  // Backend now supplies product.price as a decimal dollar amount (e.g. 25.50)
+  const formatPrice = (amount: number) => {
+    return amount.toFixed(2);
   };
 
   return (
@@ -77,7 +78,6 @@ export function ProductCard({ product, buyers, onMarkSold, onRemove, onAddBuyer 
         <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`text-description-${product.id}`}>{product.description}</p>
         
         <div className="flex items-center gap-2 text-sm">
-          <DollarSign className="w-4 h-4 text-muted-foreground" />
           <span className="font-medium text-foreground" data-testid={`text-price-${product.id}`}>{formatPrice(product.price)}</span>
         </div>
 

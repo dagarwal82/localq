@@ -1,24 +1,21 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Upload, X } from "lucide-react";
 import { ObjectUploader } from "./ObjectUploader";
-import { apiRequest } from "../lib/queryClient";
-import { useToast } from "../hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 // Local product form schema
 import { z } from "zod";
-import { useQuery } from "@tanstack/react-query";
-import type { Listing } from "../types/listing";
 
 const productFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   price: z.number().min(0, "Price must be 0 or greater"),
-  listingId: z.string().min(1, "Please select a listing"),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -35,11 +32,6 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const MAX_IMAGES = 3;
   const { toast } = useToast();
-  const { data: listings = [] } = useQuery<Listing[]>({
-    queryKey: ["/api/listings", "mine"],
-    queryFn: async () => apiRequest("GET", "/api/listings/account/me"),
-    staleTime: 60_000,
-  });
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -47,7 +39,6 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
       title: "",
       description: "",
       price: 0,
-      listingId: "",
     },
   });
 
@@ -63,8 +54,6 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
     });
   };
 
-  const [submitting, setSubmitting] = useState(false);
-
   const handleSubmit = async (values: ProductFormValues) => {
     if (imageFiles.length === 0) {
       toast({
@@ -76,14 +65,11 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
     }
 
     try {
-      setSubmitting(true);
       // Create product first
       const productRes = await apiRequest("POST", "/api/products", {
         title: values.title,
         description: values.description,
-        // Backend expects decimal price (e.g., 25.50)
-        price: Math.round((values.price || 0) * 100) / 100,
-        listingId: values.listingId,
+        price: values.price,
       });
       const productId = productRes.id;
 
@@ -107,48 +93,22 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
         description: "Failed to create listing",
       });
     }
-    finally {
-      setSubmitting(false);
-    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="default" className="h-9" data-testid="button-add-product">
-          <Plus className="w-4 h-4 mr-2" /> Add Item
+        <Button size="icon" className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50" data-testid="button-add-product">
+          <Plus className="w-6 h-6" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Item</DialogTitle>
+          <DialogTitle>Add New Listing</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="listingId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Listing</FormLabel>
-                  <FormControl>
-                    <select
-                      className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      data-testid="select-listing"
-                    >
-                      <option value="">Select a listing</option>
-                      {listings.map((lst) => (
-                        <option key={lst.id} value={lst.id}>{lst.name}</option>
-                      ))}
-                    </select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="space-y-2 opacity-100">
+            <div className="space-y-2">
               <Label>Product Images <span className="text-xs text-muted-foreground">(up to {MAX_IMAGES})</span></Label>
               {imageFiles.length > 0 && (
                 <div className="grid grid-cols-2 gap-2">
@@ -191,11 +151,11 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
             <FormField
               control={form.control}
               name="title"
-              render={({ field }) => (
+              render={({ field }: { field: any }) => (
                 <FormItem>
                   <FormLabel>Product Title</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., Vintage Camera" data-testid="input-title" disabled={submitting} />
+                    <Input {...field} placeholder="e.g., Vintage Camera" data-testid="input-title" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -205,11 +165,11 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
             <FormField
               control={form.control}
               name="description"
-              render={({ field }) => (
+              render={({ field }: { field: any }) => (
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Describe the item..." rows={3} data-testid="input-description" disabled={submitting} />
+                    <Textarea {...field} placeholder="Describe the item..." rows={3} data-testid="input-description" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -219,7 +179,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
             <FormField
               control={form.control}
               name="price"
-              render={({ field }) => (
+              render={({ field }: { field: any }) => (
                 <FormItem>
                   <FormLabel>Price ($)</FormLabel>
                   <FormControl>
@@ -230,8 +190,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
                       min="0"
                       placeholder="0.00"
                       value={field.value}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                      disabled={submitting}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.onChange(parseFloat(e.target.value) || 0)}
                       data-testid="input-price"
                     />
                   </FormControl>
@@ -244,8 +203,8 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
               <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1" data-testid="button-cancel-product">
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1" data-testid="button-submit-product" disabled={submitting}>
-                {submitting ? "Adding..." : "Add Item"}
+              <Button type="submit" className="flex-1" data-testid="button-submit-product">
+                Create Listing
               </Button>
             </div>
           </form>

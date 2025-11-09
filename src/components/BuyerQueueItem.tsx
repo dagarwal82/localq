@@ -25,9 +25,9 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
   const [shareAddress, setShareAddress] = useState(false); // owner choosing to share pickup address pre-approval
   const [showHistory, setShowHistory] = useState(false);
   
-  const formatPrice = (cents: number | null) => {
-    if (cents === null) return "FREE";
-    return `$${(cents / 100).toFixed(2)}`;
+  const formatPrice = (amount: number | null) => {
+    if (amount === null) return "FREE";
+    return `$${Number(amount).toFixed(2)}`;
   };
 
   const getInitials = (name: string) => {
@@ -39,12 +39,15 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
   const isPending = buyer.status === "PENDING";
   const isApproved = buyer.status === "APPROVED";
   const isDenied = buyer.status === "DENIED";
+  const isWithdrawn = buyer.status === "WITHDRAW" || buyer.status === "WITHDRAWN";
   const bgClass = isApproved 
     ? "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-800" 
-    : isNext && !isDenied && !isMissed 
+    : isNext && !isDenied && !isMissed && !isWithdrawn
     ? "bg-warning/10" 
     : isDenied 
     ? "bg-red-50 dark:bg-red-950/10 border-red-200 dark:border-red-800" 
+    : isWithdrawn
+    ? "bg-muted/30 dark:bg-muted/20 border-border" 
     : "";
   const hasContact = !!buyer.buyerEmail || !!buyer.phone;
   // Only owners can see contact if buyer opted-in, and buyers always see their own
@@ -70,7 +73,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
 
   return (
     <div
-      className={`rounded-md border border-border ${bgClass} ${(isMissed || isDenied) ? "opacity-50" : ""}`}
+      className={`rounded-md border border-border ${bgClass} ${(isMissed || isDenied || isWithdrawn) ? "opacity-50" : ""}`}
       data-testid={`div-buyer-${buyer.id}`}
     >
       <div className="flex items-center gap-3 p-3">
@@ -82,7 +85,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className={`text-base font-medium text-foreground ${(isMissed || isDenied) ? "line-through" : ""}`} data-testid={`text-buyer-name-${buyer.id}`}>
+            <p className={`text-base font-medium text-foreground ${(isMissed || isDenied || isWithdrawn) ? "line-through" : ""}`} data-testid={`text-buyer-name-${buyer.id}`}>
               {isOwner ? (buyer.buyerName || "Buyer") : (isSelf ? (buyer.buyerName || "You") : "Interested buyer")}
             </p>
             {isNext && !isMissed && (
@@ -98,6 +101,11 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
             {isDenied && (
               <Badge variant="destructive" className="text-xs" data-testid={`badge-denied-${buyer.id}`}>
                 DENIED
+              </Badge>
+            )}
+            {isWithdrawn && (
+              <Badge variant="secondary" className="text-xs" data-testid={`badge-withdrawn-${buyer.id}`}>
+                WITHDRAWN
               </Badge>
             )}
             {isPending && (
@@ -121,7 +129,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            {buyer.offerPrice !== null && <DollarSign className="w-4 h-4 text-muted-foreground" />}
+            {buyer.offerPrice !== null }
             {buyer.hideMe && !isOwner ? (
               <span className="inline-flex items-center gap-1 text-sm text-muted-foreground" title="Offer hidden">
                 <EyeOff className="w-4 h-4" /> Hidden
@@ -208,7 +216,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
                     {typeof h.offerPrice === 'number' && (
-                      <span>Offer: ${ (h.offerPrice / 100).toFixed(2) }</span>
+                      <span>Offer: ${ Number(h.offerPrice).toFixed(2) }</span>
                     )}
                     {h.pickupTime && (
                       <span>Pickup: {(() => { try { return format(new Date(h.pickupTime), "MMM d, h:mm a"); } catch { return h.pickupTime; } })()}</span>
@@ -282,7 +290,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
       )}
 
       {/* Buyer opt-in to share contact after interest creation */}
-      {isSelf && !buyer.shareContact && buyer.status !== "MISSED" && onShareContact && (
+      {isSelf && !buyer.shareContact && buyer.status !== "MISSED" && !isWithdrawn && onShareContact && (
         <div className="px-3 pb-3 border-t border-border pt-2">
           <Button size="sm" variant="secondary" onClick={() => onShareContact(buyer.id)} data-testid={`button-share-contact-${buyer.id}`}>
             Share my contact with owner

@@ -46,11 +46,11 @@ export default function Landing() {
       </Dialog>
       
       <header className="border-b">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <a href="https://spacevox.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 hover:opacity-90 transition" aria-label="SpaceVox website">
             <GarageSaleLogo size={40} className="text-primary" />
             <h1 className="text-2xl font-bold" data-testid="text-app-title">SpaceVox</h1>
-          </div>
+          </a>
           <Button
             onClick={() => {
               // Preserve an existing redirect (e.g., listing URL) if already set
