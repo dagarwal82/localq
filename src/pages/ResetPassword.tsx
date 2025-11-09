@@ -37,7 +37,7 @@ export default function ResetPasswordPage() {
     }
     setSubmitting(true);
     try {
-      const apiRoot = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+      const apiRoot = (import.meta.env.VITE_API_URL || 'https://api.spacevox.com').replace(/\/$/, '');
       const res = await fetch(`${apiRoot}/api/public/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

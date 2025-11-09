@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Base API host (no trailing /api here; endpoints will include full path segments)
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+const API_URL = (import.meta.env.VITE_API_URL || 'https://api.spacevox.com').replace(/\/$/, '');
 
 interface User {
   id: string;

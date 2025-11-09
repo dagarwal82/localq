@@ -26,7 +26,7 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
 
     try {
     // Use root API base without trailing slash; do NOT include '/api' here.
-    const apiRoot = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+    const apiRoot = (import.meta.env.VITE_API_URL || 'https://api.spacevox.com').replace(/\/$/, '');
     // Auth endpoints live under /api/public/auth/{login|signup}
     const response = await fetch(`${apiRoot}/api/public/auth/${mode}`, {
         method: 'POST',
@@ -66,7 +66,7 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
   };
 
   const handleGoogleLogin = () => {
-    const apiRoot = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+    const apiRoot = (import.meta.env.VITE_API_URL || 'https://api.spacevox.com').replace(/\/$/, '');
     // OAuth2 authorization endpoint is NOT under /api
     window.location.href = `${apiRoot}/oauth2/authorization/google`;
   };
