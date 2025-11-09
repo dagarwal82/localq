@@ -147,7 +147,7 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
             </div>
           </div>
           <Button
-            type="button"
+            type="button" 
             variant="outline"
             className="w-full gap-2 border-2 shadow-sm hover:shadow transition-all"
             aria-label="Continue with Google"
