@@ -99,8 +99,8 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="icon" className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50" data-testid="button-add-product">
-          <Plus className="w-6 h-6" />
+        <Button size="sm" variant="default" className="h-9" data-testid="button-add-product">
+          <Plus className="w-4 h-4 mr-2" /> Add Item
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">

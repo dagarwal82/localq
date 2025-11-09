@@ -9,6 +9,7 @@ import { Package, RefreshCw, LogOut, Shield } from "lucide-react";
 import { performLogout } from "../lib/authUtils";
 import { useToast } from "../hooks/use-toast";
 import ListingManagerDialog from "../components/ListingManagerDialog";
+import { AccountAdminsDialog } from "../components/AccountAdminsDialog";
 import type { Listing } from "../types/listing";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -235,7 +236,11 @@ export default function Home() {
               <h1 className="text-xl font-semibold text-foreground">SpaceVox</h1>
             </div>
             <div className="flex items-center gap-2">
+              <AddProductDialog onAddProduct={() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+              }} />
               <ListingManagerDialog />
+              <AccountAdminsDialog />
               <Button
                 variant="ghost"
                 size="icon"
