@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+// Base API host (no trailing /api here; endpoints will include full path segments)
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
 
 interface User {
   id: string;
@@ -16,7 +17,7 @@ interface AuthResponse {
 }
 
 export const login = async (email: string, password: string): Promise<AuthResponse> => {
-  const response = await axios.post(`${API_URL}/api/auth/login`, {
+  const response = await axios.post(`${API_URL}/api/public/auth/signin`, {
     email,
     password,
   }, { withCredentials: true }); // send cookies
@@ -29,7 +30,7 @@ export const signup = async (
   firstName?: string,
   lastName?: string
 ): Promise<AuthResponse> => {
-  const response = await axios.post(`${API_URL}/api/auth/signup`, {
+  const response = await axios.post(`${API_URL}/api/public/auth/signup`, {
     email,
     password,
     firstName,

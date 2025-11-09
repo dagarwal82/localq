@@ -40,7 +40,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const { data: me } = useQuery<{ email?: string; id?: string }>({
     queryKey: ["/api/auth/me"],
     queryFn: async () => apiRequest("GET", "/api/auth/me"),
-    staleTime: Infinity,
+    staleTime: 60_000,
   });
   
   // Check if current user is the actual owner of this product
@@ -64,18 +64,28 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const [shareContact, setShareContact] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [justWithdrew, setJustWithdrew] = useState(false); // suppress edit/withdraw buttons immediately after withdrawal until refetch
 
   // Get my current interest if it exists (prefer stored id, fallback to email match)
   const storedInterestId = (typeof window !== 'undefined') ? sessionStorage.getItem(`my_interest_${product.id}`) || undefined : undefined;
-  const myInterest =
-    buyers.find(b => (storedInterestId && b.id === storedInterestId)) ||
-    buyers.find(b => (b.buyerEmail && me?.email) ? b.buyerEmail.toLowerCase() === me.email.toLowerCase() : false);
-  // Treat withdrawn as effectively not having an active interest so user can rejoin
-  const hasMyInterest = !!myInterest && !(myInterest.status === "WITHDRAW" || myInterest.status === "WITHDRAWN");
-  const isApproved = myInterest?.status === "APPROVED";
-  const isDenied = myInterest?.status === "DENIED";
-  const isWithdrawn = myInterest?.status === "WITHDRAW" || myInterest?.status === "WITHDRAWN";
-  const hasPendingMine = myInterest?.status === "PENDING";
+  // All interests belonging to current user (may include withdrawn/denied history)
+  const myInterests = buyers.filter(b => (b.buyerEmail && me?.email) ? b.buyerEmail.toLowerCase() === me.email.toLowerCase() : false);
+  // Prefer stored interest if it still exists, otherwise prefer a pending, otherwise approved, otherwise latest by updatedAt
+  const pendingInterest = myInterests.find(b => b.status === 'PENDING');
+  const approvedInterest = myInterests.find(b => b.status === 'APPROVED');
+  const deniedInterest = myInterests.find(b => b.status === 'DENIED');
+  const storedInterest = buyers.find(b => storedInterestId && b.id === storedInterestId);
+  const myInterest = storedInterest || pendingInterest || approvedInterest || myInterests.sort((a,b)=>{
+    const at = new Date(a.updatedAt || a.createdAt).getTime();
+    const bt = new Date(b.updatedAt || b.createdAt).getTime();
+    return bt - at; // latest first
+  })[0];
+  // Treat withdrawn/withdrawn interests as effectively not active for gating
+  const isWithdrawn = myInterest?.status === 'WITHDRAW' || myInterest?.status === 'WITHDRAWN';
+  const isDenied = myInterest?.status === 'DENIED';
+  const isApproved = myInterest?.status === 'APPROVED';
+  const hasPendingMine = !!pendingInterest; // only show edit/withdraw when there is a pending interest
+  const hasMyInterest = !!myInterest && !isWithdrawn; // active interest excluding withdrawn
   const isNextMe = !!(nextBuyer && (
     (storedInterestId && nextBuyer.id === storedInterestId) ||
     ((nextBuyer?.buyerEmail && me?.email) && nextBuyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
@@ -142,7 +152,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     if (product.status !== "AVAILABLE") return;
     // Check auth
     try {
-      const me = await apiRequest("GET", "/api/auth/me");
+      const me = await apiRequest("GET", "/api/public/auth/me");
       if (!me || !me.email) throw new Error("Not authenticated");
       setInterestOpen(true);
     } catch {
@@ -191,6 +201,8 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       if (created?.id) {
         sessionStorage.setItem(`my_interest_${product.id}`, created.id);
       }
+      // New interest means we are no longer in a just-withdrew state
+      setJustWithdrew(false);
       setInterestOpen(false);
       setPickupTime("");
     setOfferPrice("0");
@@ -214,15 +226,17 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   };
 
   const handleEditInterest = () => {
-    if (myInterest) {
+    // Allow editing when PENDING or APPROVED (and optionally DENIED to resubmit)
+    const editTarget = pendingInterest || approvedInterest || deniedInterest;
+    if (editTarget) {
       // Pre-fill with current values
-      const pickupDate = new Date(myInterest.pickupTime);
+      const pickupDate = new Date(editTarget.pickupTime);
       const localDateTime = new Date(pickupDate.getTime() - pickupDate.getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16);
       setPickupTime(localDateTime);
-  setOfferPrice(myInterest.offerPrice ? (myInterest.offerPrice).toString() : "0");
-      setIsFree(!myInterest.offerPrice);
+      setOfferPrice(editTarget.offerPrice ? (editTarget.offerPrice).toString() : "0");
+      setIsFree(!editTarget.offerPrice);
       setEditingInterest(true);
       setInterestOpen(true);
     }
@@ -238,7 +252,9 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       return;
     }
     
-    if (!myInterest) return;
+  // Identify current editable interest (pending/approved/denied) and reset it to pending on update
+  const editTarget = pendingInterest || approvedInterest || deniedInterest;
+  if (!editTarget) return;
     
     setSubmitting(true);
     try {
@@ -248,13 +264,13 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       
       // Update the interest - if approved or denied, will reset to pending for re-review
       const updated = await apiRequest("PUT", "/api/buying-queue", {
-        id: myInterest.id,
+        id: editTarget.id,
         productId: product.id,
         pickupTime: pickupDate,
-  offerPrice: isFree ? null : priceNumber,
+        offerPrice: isFree ? null : priceNumber,
         hideMe: hideOffer,
         shareContact: shareContact,
-        status: (isApproved || isDenied) ? "PENDING" : myInterest.status, // Reset to pending if was approved or denied
+        status: 'PENDING', // remain pending on edit
       });
       if (updated?.id) {
         sessionStorage.setItem(`my_interest_${product.id}`, updated.id);
@@ -304,12 +320,20 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     }
     setWithdrawing(true);
     try {
+      // Optimistically remove any of the user's interests for this product from cache so UI updates instantly
+      queryClient.setQueryData<BuyerInterest[]>(["/api/buying-queue/product", product.id], (old) => {
+        if (!old) return old;
+        return old.filter(b => !((b.buyerEmail && me?.email) && b.buyerEmail.toLowerCase() === me.email.toLowerCase()));
+      });
       await apiRequest("DELETE", `/api/buying-queue/product/${product.id}/remove-interest`);
+      // Clear stored interest id so a withdrawn/denied interest doesn't keep gating incorrectly
+      sessionStorage.removeItem(`my_interest_${product.id}`);
       queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
       toast({
         title: "Interest removed",
         description: "You have been removed from the queue",
       });
+      setJustWithdrew(true);
     } catch (e: any) {
       toast({
         variant: "destructive",
@@ -471,7 +495,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                 ) : (
                   <>
                     <p className="text-sm font-semibold text-green-700 dark:text-green-400" data-testid={`text-approved-owner-${product.id}`}>
-                      {isOwner ? `${nextBuyer.buyerName || "Buyer"} is picking this up` : "Someone is picking this up"}
+                      {(isOwner || isProductOwner) ? `${nextBuyer.buyerName || "Buyer"} is picking this up` : "Someone is picking this up"}
                     </p>
                     {activeBuyers.length > 1 && (
                       <p className="text-xs text-green-600 dark:text-green-500 mt-0.5" data-testid={`text-approved-queuehint-${product.id}`}>
@@ -522,7 +546,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       key={buyer.id}
                       buyer={buyer}
                       isNext={index === 0}
-                      isOwner={isOwner}
+                      isOwner={isOwner || isProductOwner}
                       isSelf={isSelf}
                       ownerAddress={listing?.pickupAddress || product.location || undefined}
                       onApprove={handleApprove}
@@ -541,7 +565,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       key={buyer.id}
                       buyer={buyer}
                       isNext={false}
-                      isOwner={isOwner}
+                      isOwner={isOwner || isProductOwner}
                       isSelf={isSelf}
                       ownerAddress={listing?.pickupAddress || product.location || undefined}
                       onApprove={handleApprove}
@@ -556,13 +580,13 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                     (buyer.buyerEmail && me?.email && buyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
                   );
                   // Show withdrawn only to owner/admin or the withdrawn buyer
-                  if (!isOwner && !isSelf) return null;
+                  if (!(isOwner || isProductOwner) && !isSelf) return null;
                   return (
                     <BuyerQueueItem
                       key={buyer.id}
                       buyer={buyer}
                       isNext={false}
-                      isOwner={isOwner}
+                      isOwner={isOwner || isProductOwner}
                       isSelf={isSelf}
                       ownerAddress={listing?.pickupAddress || product.location || undefined}
                       onApprove={handleApprove}
@@ -577,13 +601,13 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                     (buyer.buyerEmail && me?.email && buyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
                   );
                   // Only render denied interest for owner or the denied buyer themselves
-                  if (!isOwner && !isSelf) return null;
+                  if (!(isOwner || isProductOwner) && !isSelf) return null;
                   return (
                     <BuyerQueueItem
                       key={buyer.id}
                       buyer={buyer}
                       isNext={false}
-                      isOwner={isOwner}
+                      isOwner={isOwner || isProductOwner}
                       isSelf={isSelf}
                       ownerAddress={listing?.pickupAddress || product.location || undefined}
                       onApprove={handleApprove}
@@ -647,7 +671,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       {/* Buyer Interest Controls - only when NOT owner */}
       {product.status === "AVAILABLE" && !isOwner && listing && !isProductOwner && (
         <CardFooter className="p-4 pt-0 flex flex-col gap-2">
-          {hasPendingMine ? (
+          {(hasPendingMine || isApproved) && !justWithdrew ? (
             <>
               <div className="flex flex-col gap-1 w-full">
                 <div className="flex gap-2 w-full">
@@ -674,15 +698,18 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
               </div>
             </>
           ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="w-full"
-              onClick={handleOpenInterest}
-              data-testid={`button-express-interest-${product.id}`}
-            >
-              I'm Interested
-            </Button>
+            // Only show "I'm Interested" when user doesn't already have an approved interest
+            !isApproved && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full"
+                onClick={handleOpenInterest}
+                data-testid={`button-express-interest-${product.id}`}
+              >
+                I'm Interested
+              </Button>
+            )
           )}
           <ShareProductDialog
             listingId={listing.id}

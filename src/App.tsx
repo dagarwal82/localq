@@ -12,6 +12,8 @@ import Admin from "./pages/Admin";
 import JoinProduct from "./pages/JoinProduct";
 import ListingPage from "./pages/ListingPage";
 import NotFound from "./pages/not-found";
+import VerifyEmailPage from "./pages/VerifyEmail";
+import ResetPasswordPage from "./pages/ResetPassword";
 import LegalPage from "./pages/LegalPage";
 
 function Router() {
@@ -23,7 +25,13 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/listing/:listingId" component={ListingPage} />
       <Route path="/join/:productId" component={JoinProduct} />
-      <Route path="/legal/:slug" component={LegalPage} />
+  <Route path="/legal/:slug" component={LegalPage} />
+  <Route path="/verify-email" component={VerifyEmailPage} />
+  {/* Handle verification links that hit the SPA under /api/auth/verify-email */}
+  <Route path="/api/auth/verify-email" component={VerifyEmailPage} />
+  <Route path="/reset-password" component={ResetPasswordPage} />
+  {/* Handle password reset links that may include /api/auth prefix */}
+  <Route path="/api/auth/reset-password" component={ResetPasswordPage} />
       <Route component={NotFound} />
     </Switch>
   );

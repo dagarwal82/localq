@@ -425,8 +425,23 @@ function DetailsMenu() {
           onClick={async () => {
             await performLogout();
             await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-            queryClient.clear();
-            window.location.href = "/";
+            // Clear any cached queries for the auth endpoint specifically
+            queryClient.removeQueries({ queryKey: ["/api/auth/me"], exact: false });
+            // Proactively clear common session/local storage items
+            try {
+              // Remove any saved tokens or redirects
+              localStorage.removeItem('token');
+              sessionStorage.removeItem('postAuthRedirect');
+              // Remove any stored listing access keys and interest ids
+              for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i) || '';
+                if (key.startsWith('listing_key_') || key.startsWith('my_interest_')) {
+                  sessionStorage.removeItem(key);
+                }
+              }
+            } catch {}
+            // Hard redirect to landing to ensure memory is reset
+            window.location.replace("/");
           }}
         >
           <LogOut className="w-4 h-4 mr-2" /> Logout

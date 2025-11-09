@@ -39,8 +39,7 @@ export default function Admin() {
     queryFn: async () => {
       try {
         return await apiRequest("GET", "/api/auth/me");
-      } catch (error) {
-        // Not authenticated
+      } catch {
         return null;
       }
     },

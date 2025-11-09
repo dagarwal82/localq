@@ -30,6 +30,19 @@ export default function Landing() {
     checkAuth();
   }, [setLocation]);
 
+  // If url contains ?login=1, open login dialog automatically
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("login") === "1") {
+      setAuthMode('login');
+      setShowAuth(true);
+      // Clean the param from URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('login');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    }
+  }, []);
+
   const handleAuthSuccess = () => {
     setShowAuth(false);
     const redirectTarget = sessionStorage.getItem("postAuthRedirect") || "/home";

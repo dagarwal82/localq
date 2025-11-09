@@ -8,7 +8,7 @@ export function isUnauthorizedError(error: Error): boolean {
 export async function performLogout(): Promise<boolean> {
   try {
     const API_URL = import.meta.env.VITE_API_URL || 'https://api.spacevox.com';
-    const res = await fetch(`${API_URL}/api/auth/logout`, {
+  const res = await fetch(`${API_URL}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include'
     });

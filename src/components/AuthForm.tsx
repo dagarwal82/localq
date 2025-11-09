@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { FcGoogle } from "react-icons/fc";
+import { ForgotPasswordDialog } from "./ForgotPasswordDialog";
 
 interface AuthFormProps {
   mode: 'login' | 'signup';
@@ -23,10 +25,10 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
     setIsLoading(true);
 
     try {
-      // Use root API base without trailing slash; do NOT include '/api' here.
-      const apiRoot = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
-      // Auth endpoints live under /auth/*
-      const response = await fetch(`${apiRoot}/auth/${mode}`, {
+    // Use root API base without trailing slash; do NOT include '/api' here.
+    const apiRoot = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+    // Auth endpoints live under /api/public/auth/{login|signup}
+    const response = await fetch(`${apiRoot}/api/public/auth/${mode}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -129,6 +131,11 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
           >
             {isLoading ? 'Loading...' : mode === 'login' ? 'Login' : 'Sign Up'}
           </Button>
+          {mode === 'login' && (
+            <div className="flex justify-end -mt-1">
+              <ForgotPasswordDialog />
+            </div>
+          )}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -142,10 +149,12 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
           <Button
             type="button"
             variant="outline"
-            className="w-full"
+            className="w-full gap-2 border-2 shadow-sm hover:shadow transition-all"
+            aria-label="Continue with Google"
             onClick={handleGoogleLogin}
           >
-            Continue with Google
+            <FcGoogle size={18} />
+            <span>Continue with Google</span>
           </Button>
         </CardContent>
       </form>

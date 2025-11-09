@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { Clock, DollarSign, Mail, ChevronDown, ChevronUp, Check, X, EyeOff, MapPin, Share2, History } from "lucide-react";
+import { Clock, DollarSign, Mail, ChevronDown, ChevronUp, Check, X, EyeOff, MapPin, Share2, History, HelpCircle } from "lucide-react";
 import type { BuyerInterest } from "../pages/Home";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
@@ -279,6 +279,30 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
         </div>
       )}
 
+      {/* Buyer view: approved but address not shared yet - allow request */}
+      {isSelf && isApproved && !buyer.pickupAddress && (
+        <div className="px-3 pb-3 border-t border-border pt-2 flex flex-col gap-2">
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <HelpCircle className="w-4 h-4 mt-0.5" />
+            <p>Pickup address not shared yet. You can request it from the owner.</p>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={async () => {
+              try {
+                await apiRequest("POST", `/api/buying-queue/${buyer.id}/request-address`);
+              } catch (e:any) {
+                // Silent fail for now; could integrate toast via prop callback.
+              }
+            }}
+            data-testid={`button-request-address-${buyer.id}`}
+          >
+            Request Pickup Address
+          </Button>
+        </div>
+      )}
+
       {/* Show address to buyer once shared by owner (independent of contact visibility) */}
       {isSelf && buyer.pickupAddress && (
         <div className="px-3 pb-3 border-t border-border pt-2">
@@ -308,9 +332,9 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
             </p>
           </div>
 
-          {/* If address hasn't been shared yet, allow owner to share it post-approval */}
+          {/* If address hasn't been shared yet, allow owner to share it post-approval (possibly after a request) */}
           {ownerAddress && !buyer.pickupAddress && onApprove && (
-            <div className="mt-2">
+            <div className="mt-2 flex flex-col gap-2">
               <Button
                 size="sm"
                 variant="secondary"
@@ -319,6 +343,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
               >
                 <MapPin className="w-4 h-4 mr-1" /> Share pickup address
               </Button>
+              <p className="text-[10px] text-muted-foreground">Share your address only when ready for this buyer to arrive.</p>
             </div>
           )}
         </div>

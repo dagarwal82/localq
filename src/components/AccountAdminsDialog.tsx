@@ -43,8 +43,8 @@ export function AccountAdminsDialog() {
     onSuccess: () => {
       setEmail("");
       toast({ title: "Admin added", description: "They can now manage your listings." });
-      refetch();
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    refetch();
+  queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: (e: any) => {
       toast({ variant: "destructive", title: "Error", description: e?.message || "Failed to add admin" });
@@ -57,8 +57,8 @@ export function AccountAdminsDialog() {
     },
     onSuccess: () => {
       toast({ title: "Admin removed", description: "They no longer have manage access." });
-      refetch();
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    refetch();
+  queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
     },
     onError: (e: any) => {
       toast({ variant: "destructive", title: "Error", description: e?.message || "Failed to remove admin" });
