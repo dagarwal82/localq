@@ -83,10 +83,10 @@ export default function Landing() {
         <div className="max-w-4xl w-full space-y-8">
           <div className="text-center space-y-4">
             <h2 className="text-4xl font-bold" data-testid="text-welcome-title">
-              Create Your Own Listings
+              Sell your items locally, fast
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto" data-testid="text-welcome-description">
-              Sign up to create and manage your marketplace listings. Track buyer interest, share QR codes, and coordinate pickups effortlessly.
+              Perfect for garage sales, moving out, and community swaps. Create simple listings, collect interest, and coordinate pickups with ease.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
               <Button
@@ -99,7 +99,7 @@ export default function Landing() {
                 }}
                 data-testid="button-signup"
               >
-                Sign Up to Create Listings
+                Start Selling
               </Button>
             </div>
           </div>
