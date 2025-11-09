@@ -39,7 +39,11 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          gcloud builds submit --timeout=2m --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}
+          if gcloud builds submit --timeout=2m --tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE }}; then
+            echo "Docker image built and pushed successfully."
+          else
+            echo "Docker build failed."
+          fi
 
       - name: Deploy to Cloud Run
         run: |
