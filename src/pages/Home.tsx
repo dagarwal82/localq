@@ -9,7 +9,7 @@ import { Package, RefreshCw, LogOut, MoreHorizontal, ChevronDown } from "lucide-
 import { performLogout } from "../lib/authUtils";
 import { useToast } from "../hooks/use-toast";
 import ListingManagerDialog from "../components/ListingManagerDialog";
-import { AccountAdminsDialog } from "../components/AccountAdminsDialog";
+// import { AccountAdminsDialog } from "../components/AccountAdminsDialog"; // Temporarily hidden per request
 import type { Listing } from "../types/listing";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -417,7 +417,7 @@ function DetailsMenu() {
       </summary>
       <div className="absolute right-2 mt-2 w-56 rounded-md border border-border bg-popover p-2 shadow-md flex flex-col gap-1 z-50">
         <ListingManagerDialog triggerClassName="justify-start w-full" />
-        <AccountAdminsDialog />
+  {/* <AccountAdminsDialog /> Hidden temporarily */}
         <Button
           variant="destructive"
           size="sm"
