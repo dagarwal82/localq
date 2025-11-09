@@ -6,4 +6,5 @@ export interface Listing {
   accountId?: string;
   createdAt?: string | null;
   updatedAt?: string | null;
+  pickupAddress?: string | null;
 }

@@ -7,10 +7,33 @@ function join(base: string | undefined, path: string): string {
   return `${b}${p}`;
 }
 
+function isLikelyHtml(text: string) {
+  const t = text.trim().toLowerCase();
+  return t.startsWith("<!doctype") || t.startsWith("<html") || t.includes("<head") || t.includes("<body");
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const contentType = res.headers.get("content-type") || "";
+    let message = res.statusText;
+    try {
+      const raw = await res.text();
+      if (raw) {
+        if (contentType.includes("application/json")) {
+          try {
+            const json = JSON.parse(raw);
+            message = json.message || json.error || message;
+          } catch {
+            message = raw;
+          }
+        } else if (!isLikelyHtml(raw)) {
+          message = raw;
+        }
+      }
+    } catch {
+      // ignore body parse issues
+    }
+    throw new Error(`${res.status}: ${message}`);
   }
 }
 

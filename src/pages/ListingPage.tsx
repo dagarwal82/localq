@@ -76,22 +76,45 @@ export default function ListingPage() {
     },
   });
 
-  // Auto-grant access if key available and user doesn't have access yet
+  // Check auth status for gating grant-access
+  const { data: me } = useQuery({
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      try { return await apiRequest("GET", "/api/auth/me"); } catch { return null; }
+    },
+  });
+
+  // Auto-grant access only when authenticated and a key is present
   useEffect(() => {
-    if (effectiveKey && hasAccess === false && !grantAccessMutation.isPending && !grantAccessMutation.isSuccess) {
+    const isAuthed = !!me?.id || !!me?.email;
+    if (effectiveKey && hasAccess === false && isAuthed && !grantAccessMutation.isPending && !grantAccessMutation.isSuccess) {
       grantAccessMutation.mutate(effectiveKey);
     } else if (hasAccess === false && !effectiveKey && !checkingAccess && !grantAccessMutation.isPending) {
       setNeedsKey(true);
     }
-  }, [hasAccess, effectiveKey, checkingAccess]);
+  }, [hasAccess, effectiveKey, checkingAccess, me]);
 
-  // Fetch listing details and products using public endpoint when key is available
-  const { data: publicListingData } = useQuery<Listing & { products: Product[] }>({
+  // Fetch listing details and products using public endpoint when key is available (works for anonymous users)
+  const { data: publicListingData, error: publicError, isLoading: publicLoading } = useQuery<Listing & { products: Product[] }>({
     queryKey: ["/api/listings/public", listingId, effectiveKey],
     queryFn: async () => {
-      return apiRequest("GET", `/api/listings/public/${listingId}?key=${encodeURIComponent(effectiveKey!)}`);
+      if (!effectiveKey) throw new Error("NO_KEY");
+      try {
+        return await apiRequest("GET", `/api/listings/public/${listingId}?key=${encodeURIComponent(effectiveKey)}`);
+      } catch (e: any) {
+        // Normalize common error scenarios
+        const msg = String(e.message || "");
+        if (msg.startsWith("404")) {
+          throw new Error("NOT_FOUND");
+        }
+        if (msg.startsWith("401") || msg.includes("Invalid key") || msg.includes("invalid key") || msg.startsWith("400")) {
+          throw new Error("INVALID_KEY");
+        }
+        throw new Error("GENERIC_ERROR");
+      }
     },
     enabled: !!effectiveKey,
+    retry: false,
   });
 
   // Fetch listing details using private endpoint for authenticated users without key
@@ -114,7 +137,7 @@ export default function ListingPage() {
   // Use public or private data depending on what's available
   const listing: Listing | undefined = publicListingData || privateListing;
   const items: Product[] = publicListingData?.products || privateItems;
-  const itemsLoading = effectiveKey ? !publicListingData : privateItemsLoading;
+  const itemsLoading = effectiveKey ? publicLoading : privateItemsLoading;
 
   const handleVerifyKey = () => {
     if (keyInput.trim()) {
@@ -184,6 +207,11 @@ export default function ListingPage() {
 
   const activeItems = items.filter(p => p.status === "AVAILABLE");
 
+  // Handle invalid public key gracefully for anonymous access
+  const showInvalidKey = effectiveKey && publicError && (publicError as Error).message === "INVALID_KEY";
+  const showNotFound = publicError && (publicError as Error).message === "NOT_FOUND";
+  const showGenericError = publicError && (publicError as Error).message === "GENERIC_ERROR";
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-background border-b border-border">
@@ -214,6 +242,38 @@ export default function ListingPage() {
       </header>
       
       <main className="container max-w-4xl mx-auto px-4 py-6">
+        {showInvalidKey && (
+          <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg" data-testid="alert-invalid-key">
+            <p className="text-sm text-destructive font-medium">Invalid key</p>
+            <p className="text-xs text-muted-foreground mt-1">The key in your link is incorrect or expired. Enter the correct key below.</p>
+            <div className="mt-3 flex gap-2">
+              <Input
+                value={keyInput}
+                onChange={(e) => setKeyInput(e.target.value)}
+                placeholder="Enter listing key"
+                className="flex-1"
+              />
+              <Button onClick={handleVerifyKey} disabled={!keyInput.trim() || grantAccessMutation.isPending}>
+                {grantAccessMutation.isPending ? "Verifying..." : "Verify"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {showNotFound && (
+          <div className="mb-4 p-4 bg-muted/20 border border-border rounded-lg" data-testid="alert-listing-not-found">
+            <p className="text-sm font-medium">Listing not found</p>
+            <p className="text-xs text-muted-foreground mt-1">This listing may have been removed or the link is incorrect.</p>
+          </div>
+        )}
+
+        {showGenericError && (
+          <div className="mb-4 p-4 bg-muted/20 border border-border rounded-lg" data-testid="alert-generic-error">
+            <p className="text-sm font-medium">Something went wrong</p>
+            <p className="text-xs text-muted-foreground mt-1">Please try again or contact the owner for a new link.</p>
+          </div>
+        )}
+
         {grantAccessMutation.isPending && (
           <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg text-center">
             <RefreshCw className="w-5 h-5 animate-spin text-primary inline-block mr-2" />

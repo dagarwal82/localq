@@ -54,6 +54,8 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
     setImageFiles(current => current.filter((_, i) => i !== index));
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleSubmit = async (values: ProductFormValues) => {
     if (imageFiles.length === 0) {
       toast({
@@ -65,6 +67,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
     }
 
     try {
+      setSubmitting(true);
       // Create product first
       const productRes = await apiRequest("POST", "/api/products", {
         title: values.title,
@@ -93,6 +96,9 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
         title: "Error",
         description: "Failed to create listing",
       });
+    }
+    finally {
+      setSubmitting(false);
     }
   };
 
@@ -132,7 +138,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
                 </FormItem>
               )}
             />
-            <div className="space-y-2">
+            <div className="space-y-2 opacity-100">
               <Label>Product Images</Label>
               {imageFiles.length > 0 && (
                 <div className="grid grid-cols-2 gap-2">
@@ -175,7 +181,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
                 <FormItem>
                   <FormLabel>Product Title</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., Vintage Camera" data-testid="input-title" />
+                    <Input {...field} placeholder="e.g., Vintage Camera" data-testid="input-title" disabled={submitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -189,7 +195,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Describe the item..." rows={3} data-testid="input-description" />
+                    <Textarea {...field} placeholder="Describe the item..." rows={3} data-testid="input-description" disabled={submitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -211,6 +217,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
                       placeholder="0.00"
                       value={field.value}
                       onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      disabled={submitting}
                       data-testid="input-price"
                     />
                   </FormControl>
@@ -223,8 +230,8 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
               <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1" data-testid="button-cancel-product">
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1" data-testid="button-submit-product">
-                Add Item
+              <Button type="submit" className="flex-1" data-testid="button-submit-product" disabled={submitting}>
+                {submitting ? "Adding..." : "Add Item"}
               </Button>
             </div>
           </form>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { Clock, DollarSign, Phone, Mail, ChevronDown, ChevronUp, Check, X } from "lucide-react";
+import { Clock, DollarSign, Mail, ChevronDown, ChevronUp, Check, X, EyeOff, MapPin, Share2 } from "lucide-react";
 import type { BuyerInterest } from "../pages/Home";
 import { format } from "date-fns";
 
@@ -10,12 +10,16 @@ interface BuyerQueueItemProps {
   buyer: BuyerInterest;
   isNext: boolean;
   isOwner?: boolean;
-  onApprove?: (queueId: string) => void;
+  /** True if the viewer is the same person as the buyer (matches their email) */
+  isSelf?: boolean;
+  onApprove?: (queueId: string, opts?: { shareAddress?: boolean }) => void;
   onDeny?: (queueId: string) => void;
+  ownerAddress?: string; // address available for owner to optionally share
 }
 
-export function BuyerQueueItem({ buyer, isNext, isOwner = false, onApprove, onDeny }: BuyerQueueItemProps) {
+export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false, onApprove, onDeny, ownerAddress }: BuyerQueueItemProps) {
   const [showContact, setShowContact] = useState(false);
+  const [shareAddress, setShareAddress] = useState(false); // owner choosing to share pickup address pre-approval
   
   const formatPrice = (cents: number | null) => {
     if (cents === null) return "FREE";
@@ -35,7 +39,9 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, onApprove, onDe
     : isNext 
     ? "bg-warning/10" 
     : "";
-  const hasContact = !!buyer.buyerEmail;
+  const hasContact = !!buyer.buyerEmail || !!buyer.phone;
+  // Only owners can see contact if buyer opted-in, and buyers always see their own
+  const canSeeContact = (isSelf || (isOwner && buyer.shareContact)) && hasContact;
 
   return (
     <div
@@ -45,14 +51,14 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, onApprove, onDe
       <div className="flex items-center gap-3 p-3">
         <Avatar className="h-10 w-10">
           <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-            {getInitials(buyer.buyerEmail ?? "")}
+            {canSeeContact ? getInitials(buyer.buyerEmail ?? "") : "?"}
           </AvatarFallback>
         </Avatar>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className={`text-base font-medium text-foreground ${isMissed ? "line-through" : ""}`} data-testid={`text-buyer-name-${buyer.id}`}>
-              {buyer.buyerEmail}
+              {isOwner ? (buyer.buyerName || "Buyer") : (isSelf ? (buyer.buyerName || "You") : "Interested buyer")}
             </p>
             {isNext && !isMissed && (
               <Badge variant="default" className="text-xs bg-warning text-warning-foreground" data-testid={`badge-next-${buyer.id}`}>
@@ -86,12 +92,18 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, onApprove, onDe
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
             {buyer.offerPrice !== null && <DollarSign className="w-4 h-4 text-muted-foreground" />}
-            <span className={`text-base font-medium ${buyer.offerPrice === null ? "text-success" : "text-foreground"}`} data-testid={`text-offer-${buyer.id}`}>
-              {formatPrice(buyer.offerPrice ?? null)}
-            </span>
+            {buyer.hideMe && !isOwner ? (
+              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground" title="Offer hidden">
+                <EyeOff className="w-4 h-4" /> Hidden
+              </span>
+            ) : (
+              <span className={`text-base font-medium ${buyer.offerPrice === null ? "text-success" : "text-foreground"}`} data-testid={`text-offer-${buyer.id}`}>
+                {formatPrice(buyer.offerPrice ?? null)}
+              </span>
+            )}
           </div>
           
-          {hasContact && (
+          {canSeeContact && (
             <Button
               variant="ghost"
               size="sm"
@@ -105,14 +117,24 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, onApprove, onDe
         </div>
       </div>
 
-      {showContact && hasContact && (
+      {showContact && canSeeContact && (
         <div className="px-3 pb-3 space-y-2 border-t border-border pt-2" data-testid={`div-contact-${buyer.id}`}> 
           {buyer.buyerEmail && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Mail className="w-4 h-4" />
-              <a href={`mailto:${buyer.buyerEmail}`} className="hover:text-foreground" data-testid={`link-email-${buyer.id}`}>
-                {buyer.buyerEmail}
-              </a>
+              {canSeeContact ? (
+                <a href={`mailto:${buyer.buyerEmail}`} className="hover:text-foreground" data-testid={`link-email-${buyer.id}`}>
+                  {buyer.buyerEmail}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">Contact hidden</span>
+              )}
+            </div>
+          )}
+          {buyer.phone && canSeeContact && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Share2 className="w-4 h-4" />
+              <span>{buyer.phone}</span>
             </div>
           )}
         </div>
@@ -125,7 +147,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, onApprove, onDe
             variant="default"
             size="sm"
             className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-            onClick={() => onApprove(buyer.id)}
+            onClick={() => onApprove(buyer.id, { shareAddress })}
             data-testid={`button-approve-${buyer.id}`}
           >
             <Check className="w-4 h-4 mr-1" />
@@ -141,6 +163,31 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, onApprove, onDe
             <X className="w-4 h-4 mr-1" />
             Deny
           </Button>
+        </div>
+      )}
+
+      {/* Owner pre-approval address sharing controls */}
+      {isOwner && isPending && ownerAddress && (
+        <div className="px-3 pb-3 border-t border-border pt-2">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="h-3 w-3 rounded border-border"
+              checked={shareAddress}
+              onChange={(e) => setShareAddress(e.target.checked)}
+            />
+            Share pickup address ({ownerAddress}) with this buyer when approving
+          </label>
+        </div>
+      )}
+
+      {/* Show address to buyer once shared by owner (independent of contact visibility) */}
+      {isSelf && buyer.ownerPickupAddress && (
+        <div className="px-3 pb-3 border-t border-border pt-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <MapPin className="w-4 h-4" />
+            <span>{buyer.ownerPickupAddress}</span>
+          </div>
         </div>
       )}
 

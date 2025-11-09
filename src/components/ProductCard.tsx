@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Package, Clock, DollarSign, Users, ChevronDown, ChevronUp, CalendarDays } from "lucide-react";
 import type { Product, BuyerInterest } from "@/pages/Home";
 import type { ProductImage } from "@/pages/Home";
@@ -53,6 +54,8 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const [pickupTime, setPickupTime] = useState("");
   const [offerPrice, setOfferPrice] = useState("0");
   const [isFree, setIsFree] = useState(false);
+  const [hideOffer, setHideOffer] = useState(false);
+  const [shareContact, setShareContact] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
 
@@ -78,13 +81,16 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     return `$${(cents / 100).toFixed(2)}`;
   };
 
-  const handleApprove = async (queueId: string) => {
+  const handleApprove = async (queueId: string, opts?: { shareAddress?: boolean }) => {
     try {
-      await apiRequest("POST", `/api/buying-queue/approve?queueId=${queueId}`);
+      // Extend approve endpoint to include optional sharing directives (backend must support)
+      const params = new URLSearchParams({ queueId });
+      if (opts?.shareAddress) params.append("shareAddress", "true");
+      await apiRequest("POST", `/api/buying-queue/approve?${params.toString()}`);
       queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
       toast({
         title: "Interest approved",
-        description: "Buyer has been approved for pickup",
+        description: "Buyer has been approved for pickup" + (opts?.shareAddress ? " and received the pickup address" : ""),
       });
     } catch (e: any) {
       toast({
@@ -121,7 +127,18 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       setInterestOpen(true);
     } catch {
       // Redirect to landing to auth then return
-      sessionStorage.setItem("postAuthRedirect", "/home");
+      // Preserve public listing key for post-auth auto-grant
+      if (listing) {
+        const storageKey = `listing_key_${listing.id}`;
+        sessionStorage.setItem(storageKey, listing.key);
+        // Always redirect back to the full listing URL with key preserved
+        const listingUrlWithKey = `/listing/${listing.id}?k=${encodeURIComponent(listing.key)}`;
+        sessionStorage.setItem("postAuthRedirect", listingUrlWithKey);
+      } else {
+        // If not inside a listing context, keep existing or fallback to home
+        const existing = sessionStorage.getItem("postAuthRedirect");
+        if (!existing) sessionStorage.setItem("postAuthRedirect", "/home");
+      }
       toast({
         title: "Please sign up or log in",
         description: "You need an account to join the interest queue",
@@ -147,11 +164,15 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
         productId: product.id,
         pickupTime: pickupDate,
         offerPrice: isFree ? null : Math.round(priceNumber * 100),
+        hideMe: hideOffer,
+        shareContact: shareContact,
       });
       setInterestOpen(false);
       setPickupTime("");
-      setOfferPrice("0");
-      setIsFree(false);
+    setOfferPrice("0");
+    setIsFree(false);
+    setHideOffer(false);
+    setShareContact(false);
       queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
       toast({
         title: "Interest registered",
@@ -206,14 +227,18 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
         productId: product.id,
         pickupTime: pickupDate,
         offerPrice: isFree ? null : Math.round(priceNumber * 100),
+        hideMe: hideOffer,
+        shareContact: shareContact,
         status: isApproved ? "PENDING" : myInterest.status, // Reset to pending if was approved
       });
       
       setInterestOpen(false);
       setEditingInterest(false);
       setPickupTime("");
-      setOfferPrice("0");
-      setIsFree(false);
+    setOfferPrice("0");
+    setIsFree(false);
+    setHideOffer(false);
+    setShareContact(false);
       queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
       
       if (isApproved) {
@@ -370,6 +395,8 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                     buyer={buyer}
                     isNext={index === 0}
                     isOwner={isOwner}
+                    isSelf={buyer.buyerEmail === me?.email}
+                    ownerAddress={listing?.pickupAddress || product.location || undefined}
                     onApprove={handleApprove}
                     onDeny={handleDeny}
                   />
@@ -380,6 +407,8 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                     buyer={buyer}
                     isNext={false}
                     isOwner={isOwner}
+                    isSelf={buyer.buyerEmail === me?.email}
+                    ownerAddress={listing?.pickupAddress || product.location || undefined}
                     onApprove={handleApprove}
                     onDeny={handleDeny}
                   />
@@ -410,24 +439,28 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
             </div>
           )}
           <div className="flex gap-2 w-full">
-            <Button
+            <ConfirmButton
               variant="default"
               size="sm"
               className="flex-1"
-              onClick={() => onMarkSold(product.id)}
+              onConfirm={() => onMarkSold(product.id)}
+              confirmTitle="Mark as Sold?"
+              confirmDescription="This will mark the item as sold and move it to the Sold tab."
               data-testid={`button-mark-sold-${product.id}`}
             >
               Mark Sold
-            </Button>
-            <Button
+            </ConfirmButton>
+            <ConfirmButton
               variant="destructive"
               size="sm"
               className="flex-1"
-              onClick={() => onRemove(product.id)}
+              onConfirm={() => onRemove(product.id)}
+              confirmTitle="Remove Item?"
+              confirmDescription="This will permanently delete the item and its images. This action cannot be undone."
               data-testid={`button-remove-${product.id}`}
             >
               Remove
-            </Button>
+            </ConfirmButton>
           </div>
         </CardFooter>
       )}
@@ -524,6 +557,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
           setPickupTime("");
           setOfferPrice("0");
           setIsFree(false);
+          setHideOffer(false);
         }
       }}>
         <DialogContent className="sm:max-w-md">
@@ -560,6 +594,24 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                   />
                 </div>
               )}
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="hideOffer">Hide my offer?</Label>
+                  <Switch id="hideOffer" checked={hideOffer} onCheckedChange={setHideOffer} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Hidden offers are visible to the owner only and may be de‑prioritized.
+                </p>
+              </div>
+              <div className="mt-2 space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="shareContact">Share my contact?</Label>
+                  <Switch id="shareContact" checked={shareContact} onCheckedChange={setShareContact} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  If enabled, owner can view your email/phone for coordination.
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button

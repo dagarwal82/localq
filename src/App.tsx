@@ -30,7 +30,7 @@ function Router() {
 function App() {
   const queryClient = useQueryClient();
   
-  // Handle token from Google OAuth redirect
+  // Handle token from OAuth redirect and auto-grant listing access post-auth
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
@@ -43,6 +43,27 @@ function App() {
       // Invalidate the auth query to force a refresh
       // Force a refetch of auth state
       queryClient.resetQueries({ queryKey: ['auth-user'] });
+
+      // If we have a stored listing key from pre-auth navigation, auto-grant access now
+      try {
+        const pathMatch = window.location.pathname.match(/^\/listing\/(.+)$/);
+        if (pathMatch && pathMatch[1]) {
+          const listingId = pathMatch[1];
+          const storageKey = `listing_key_${listingId}`;
+          const savedKey = sessionStorage.getItem(storageKey);
+          if (savedKey) {
+            // Fire-and-forget grant; ListingPage will also handle its own flow
+            fetch(`/api/listings/${listingId}/grant-access`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ key: savedKey }),
+            }).finally(() => {
+              sessionStorage.removeItem(storageKey);
+            });
+          }
+        }
+      } catch {}
     } else if (error) {
       // Handle error
       console.error('Authentication error:', error);

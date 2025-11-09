@@ -53,7 +53,9 @@ export default function Landing() {
           </div>
           <Button
             onClick={() => {
-              sessionStorage.setItem("postAuthRedirect", "/home");
+              // Preserve an existing redirect (e.g., listing URL) if already set
+              const existing = sessionStorage.getItem("postAuthRedirect");
+              if (!existing) sessionStorage.setItem("postAuthRedirect", "/home");
               setAuthMode('login');
               setShowAuth(true);
             }}
@@ -77,7 +79,8 @@ export default function Landing() {
               <Button
                 size="lg"
                 onClick={() => {
-                  sessionStorage.setItem("postAuthRedirect", "/home");
+                  const existing = sessionStorage.getItem("postAuthRedirect");
+                  if (!existing) sessionStorage.setItem("postAuthRedirect", "/home");
                   setAuthMode('signup');
                   setShowAuth(true);
                 }}

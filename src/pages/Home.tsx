@@ -5,7 +5,7 @@ import { ProductCard } from "../components/ProductCard";
 import { AddProductDialog } from "../components/AddProductDialog";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Package, RefreshCw, LogOut, Shield } from "lucide-react";
+import { Package, RefreshCw, LogOut, Shield, ChevronDown } from "lucide-react";
 import { performLogout } from "../lib/authUtils";
 import { useToast } from "../hooks/use-toast";
 import ListingManagerDialog from "../components/ListingManagerDialog";
@@ -53,6 +53,11 @@ export interface BuyerInterest {
   hideMe?: boolean;
   buyerEmail?: string;
   queuePosition?: number;
+  // New fields for privacy-first display and contact sharing
+  buyerName?: string; // first name preferred
+  phone?: string | null;
+  shareContact?: boolean; // buyer opted to share contact with owner
+  ownerPickupAddress?: string | null; // set by backend when shareAddress approved
 }
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -61,6 +66,7 @@ export default function Home() {
   const { toast } = useToast();
   const [newListingName, setNewListingName] = useState("");
   const [newListingDesc, setNewListingDesc] = useState("");
+  const [newListingAddress, setNewListingAddress] = useState("");
   const [, setLocation] = useLocation();
 
   // Check authentication - redirect to landing if not authenticated
@@ -94,10 +100,11 @@ export default function Home() {
   });
 
   const createListingMutation = useMutation({
-    mutationFn: async () => apiRequest("POST", "/api/listings", { name: newListingName, description: newListingDesc }),
+    mutationFn: async () => apiRequest("POST", "/api/listings", { name: newListingName, description: newListingDesc, pickupAddress: newListingAddress || undefined }),
     onSuccess: () => {
       setNewListingName("");
       setNewListingDesc("");
+      setNewListingAddress("");
       queryClient.invalidateQueries({ queryKey: ["/api/listings", "mine"] });
       toast({ title: "Listing created", description: "You can now add items to it." });
     },
@@ -228,44 +235,21 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 bg-background border-b border-border">
-          <div className="container max-w-4xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <GarageSaleLogo size={32} className="text-primary" />
-              <h1 className="text-xl font-semibold text-foreground">SpaceVox</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <AddProductDialog onAddProduct={() => {
-                queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-              }} />
-              <ListingManagerDialog />
-              <AccountAdminsDialog />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-                  queryClient.invalidateQueries({ queryKey: ["/api/buying-queue"] });
-                }}
-                data-testid="button-refresh"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={async () => {
-                  // Call backend logout; regardless of result, clear caches and redirect
-                  await performLogout();
-                  await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-                  queryClient.clear();
-                  window.location.href = "/";
-                }}
-                data-testid="button-logout"
-              >
-                <LogOut className="w-5 h-5" />
-              </Button>
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
+        <div className="max-w-4xl mx-auto px-3 py-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <GarageSaleLogo size={28} className="text-primary flex-shrink-0" />
+            <h1 className="text-lg font-semibold tracking-tight truncate">SpaceVox</h1>
+          </div>
+          {/* Mobile primary actions */}
+          <div className="flex items-center gap-1">
+            {/* Always show quick add */}
+            <AddProductDialog onAddProduct={() => {
+              queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+            }} />
+            {/* Collapsed menu for secondary actions */}
+            <div className="relative">
+              <DetailsMenu />
             </div>
           </div>
         </div>
@@ -308,6 +292,16 @@ export default function Home() {
                       placeholder="Short description"
                       data-testid="input-new-listing-desc"
                     />
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase">Pickup Address (optional)</Label>
+                    <Input
+                      value={newListingAddress}
+                      onChange={(e) => setNewListingAddress(e.target.value)}
+                      placeholder="123 Main St, City"
+                      data-testid="input-new-listing-address"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">This address is not public. You can reveal it per buyer on approval.</p>
                   </div>
                   <Button
                     onClick={() => createListingMutation.mutate()}
@@ -381,9 +375,36 @@ export default function Home() {
         </Tabs>
       </main>
 
-      <AddProductDialog onAddProduct={() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      }} />
     </div>
+  );
+}
+
+// Lightweight details dropdown (native <details>) for mobile secondary actions
+function DetailsMenu() {
+  return (
+    <details className="group [&_summary::-webkit-details-marker]:hidden">
+      <summary className="flex items-center justify-center rounded-md border border-border h-9 w-9 cursor-pointer hover:bg-muted transition-colors">
+        <span className="sr-only">Open menu</span>
+        <Shield className="w-5 h-5 text-muted-foreground group-open:hidden" />
+        <ChevronDown className="w-5 h-5 text-muted-foreground hidden group-open:block" />
+      </summary>
+      <div className="absolute right-2 mt-2 w-56 rounded-md border border-border bg-popover p-2 shadow-md flex flex-col gap-1 z-50">
+        <ListingManagerDialog triggerClassName="justify-start w-full" />
+        <AccountAdminsDialog />
+        <Button
+          variant="destructive"
+          size="sm"
+          className="justify-start"
+          onClick={async () => {
+            await performLogout();
+            await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+            queryClient.clear();
+            window.location.href = "/";
+          }}
+        >
+          <LogOut className="w-4 h-4 mr-2" /> Logout
+        </Button>
+      </div>
+    </details>
   );
 }
