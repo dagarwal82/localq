@@ -15,9 +15,10 @@ interface BuyerQueueItemProps {
   onApprove?: (queueId: string, opts?: { shareAddress?: boolean }) => void;
   onDeny?: (queueId: string) => void;
   ownerAddress?: string; // address available for owner to optionally share
+  onShareContact?: (queueId: string) => void;
 }
 
-export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false, onApprove, onDeny, ownerAddress }: BuyerQueueItemProps) {
+export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false, onApprove, onDeny, ownerAddress, onShareContact }: BuyerQueueItemProps) {
   const [showContact, setShowContact] = useState(false);
   const [shareAddress, setShareAddress] = useState(false); // owner choosing to share pickup address pre-approval
   
@@ -34,10 +35,13 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
   const isMissed = buyer.status === "MISSED";
   const isPending = buyer.status === "PENDING";
   const isApproved = buyer.status === "APPROVED";
+  const isDenied = buyer.status === "DENIED";
   const bgClass = isApproved 
     ? "bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-800" 
-    : isNext 
+    : isNext && !isDenied && !isMissed 
     ? "bg-warning/10" 
+    : isDenied 
+    ? "bg-red-50 dark:bg-red-950/10 border-red-200 dark:border-red-800" 
     : "";
   const hasContact = !!buyer.buyerEmail || !!buyer.phone;
   // Only owners can see contact if buyer opted-in, and buyers always see their own
@@ -45,7 +49,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
 
   return (
     <div
-      className={`rounded-md border border-border ${bgClass} ${isMissed ? "opacity-50" : ""}`}
+      className={`rounded-md border border-border ${bgClass} ${(isMissed || isDenied) ? "opacity-50" : ""}`}
       data-testid={`div-buyer-${buyer.id}`}
     >
       <div className="flex items-center gap-3 p-3">
@@ -57,7 +61,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className={`text-base font-medium text-foreground ${isMissed ? "line-through" : ""}`} data-testid={`text-buyer-name-${buyer.id}`}>
+            <p className={`text-base font-medium text-foreground ${(isMissed || isDenied) ? "line-through" : ""}`} data-testid={`text-buyer-name-${buyer.id}`}>
               {isOwner ? (buyer.buyerName || "Buyer") : (isSelf ? (buyer.buyerName || "You") : "Interested buyer")}
             </p>
             {isNext && !isMissed && (
@@ -68,6 +72,11 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
             {isMissed && (
               <Badge variant="destructive" className="text-xs" data-testid={`badge-missed-${buyer.id}`}>
                 MISSED
+              </Badge>
+            )}
+            {isDenied && (
+              <Badge variant="destructive" className="text-xs" data-testid={`badge-denied-${buyer.id}`}>
+                DENIED
               </Badge>
             )}
             {isPending && (
@@ -182,12 +191,21 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
       )}
 
       {/* Show address to buyer once shared by owner (independent of contact visibility) */}
-      {isSelf && buyer.ownerPickupAddress && (
+      {isSelf && buyer.pickupAddress && (
         <div className="px-3 pb-3 border-t border-border pt-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <MapPin className="w-4 h-4" />
-            <span>{buyer.ownerPickupAddress}</span>
+            <span>{buyer.pickupAddress}</span>
           </div>
+        </div>
+      )}
+
+      {/* Buyer opt-in to share contact after interest creation */}
+      {isSelf && !buyer.shareContact && buyer.status !== "MISSED" && onShareContact && (
+        <div className="px-3 pb-3 border-t border-border pt-2">
+          <Button size="sm" variant="secondary" onClick={() => onShareContact(buyer.id)} data-testid={`button-share-contact-${buyer.id}`}>
+            Share my contact with owner
+          </Button>
         </div>
       )}
 
@@ -200,6 +218,20 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
               Waiting for pickup
             </p>
           </div>
+
+          {/* If address hasn't been shared yet, allow owner to share it post-approval */}
+          {ownerAddress && !buyer.pickupAddress && onApprove && (
+            <div className="mt-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => onApprove(buyer.id, { shareAddress: true })}
+                data-testid={`button-share-address-${buyer.id}`}
+              >
+                <MapPin className="w-4 h-4 mr-1" /> Share pickup address
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

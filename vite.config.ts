@@ -28,20 +28,20 @@ export default defineConfig({
     proxy: {
       // Proxy API and auth to Spring Boot backend to keep same-origin cookies in dev
       "/api": {
-        target: "https://api.spacevox.com",
+        target: "http://localhost:8080",
         changeOrigin: true,
         secure: false,
         // Ensure Set-Cookie from backend works at dev origin
         cookieDomainRewrite: "",
       },
       "/auth": {
-        target: "https://api.spacevox.com",
+        target: "http://localhost:8080",
         changeOrigin: true,
         secure: false,
         cookieDomainRewrite: "",
       },
       "/oauth2": {
-        target: "https://api.spacevox.com",
+        target: "http://localhost:8080",
         changeOrigin: true,
         secure: false,
         cookieDomainRewrite: "",

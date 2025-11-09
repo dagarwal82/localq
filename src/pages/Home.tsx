@@ -57,9 +57,9 @@ export interface BuyerInterest {
   buyerName?: string; // first name preferred
   phone?: string | null;
   shareContact?: boolean; // buyer opted to share contact with owner
-  ownerPickupAddress?: string | null; // set by backend when shareAddress approved
+  pickupAddress?: string | null; // set by backend when shareAddress approved
 }
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 
 export default function Home() {
@@ -381,8 +381,35 @@ export default function Home() {
 
 // Lightweight details dropdown (native <details>) for mobile secondary actions
 function DetailsMenu() {
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent | TouchEvent) => {
+      const el = detailsRef.current;
+      if (!el) return;
+      const target = e.target as Node | null;
+      if (el.open && target && !el.contains(target)) {
+        el.open = false;
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        const el = detailsRef.current;
+        if (el?.open) el.open = false;
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, []);
+
   return (
-    <details className="group [&_summary::-webkit-details-marker]:hidden">
+    <details ref={detailsRef} className="group [&_summary::-webkit-details-marker]:hidden">
       <summary className="flex items-center justify-center rounded-md border border-border h-9 w-9 cursor-pointer hover:bg-muted transition-colors">
         <span className="sr-only">Open menu</span>
         <Shield className="w-5 h-5 text-muted-foreground group-open:hidden" />

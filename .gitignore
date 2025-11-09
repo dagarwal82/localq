@@ -6,3 +6,6 @@ vite.config.ts.*
 *.tar.gz
 .env
 .env
+src/lib/auth.ts
+vite.config.ts
+src/components/AuthForm.tsx

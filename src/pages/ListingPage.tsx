@@ -206,6 +206,7 @@ export default function ListingPage() {
   }
 
   const activeItems = items.filter(p => p.status === "AVAILABLE");
+  const soldItems = items.filter(p => p.status === "SOLD");
 
   // Handle invalid public key gracefully for anonymous access
   const showInvalidKey = effectiveKey && publicError && (publicError as Error).message === "INVALID_KEY";
@@ -285,22 +286,43 @@ export default function ListingPage() {
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : activeItems.length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No items in this listing yet.</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {activeItems.map((item) => (
-              <ProductCard 
-                key={item.id} 
-                product={item}
-                listing={listing}
-                isOwner={false}
-                onMarkSold={() => {}}
-                onRemove={() => {}}
-              />
-            ))}
+          <div className="space-y-8">
+            {/* Available items */}
+            {activeItems.length > 0 && (
+              <div className="space-y-4" data-testid="section-available-items">
+                {activeItems.map((item) => (
+                  <ProductCard 
+                    key={item.id} 
+                    product={item}
+                    listing={listing}
+                    isOwner={false}
+                    onMarkSold={() => {}}
+                    onRemove={() => {}}
+                  />
+                ))}
+              </div>
+            )}
+            {/* Sold items */}
+            {soldItems.length > 0 && (
+              <div className="space-y-4" data-testid="section-sold-items">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Sold Items</h2>
+                {soldItems.map((item) => (
+                  <ProductCard
+                    key={item.id}
+                    product={item}
+                    listing={listing}
+                    isOwner={false}
+                    onMarkSold={() => {}}
+                    onRemove={() => {}}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>

@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { Package, Clock, DollarSign, Users, ChevronDown, ChevronUp, CalendarDays } from "lucide-react";
+import { Package, Clock, DollarSign, Users, ChevronDown, ChevronUp, CalendarDays, MapPin } from "lucide-react";
 import type { Product, BuyerInterest } from "@/pages/Home";
 import type { ProductImage } from "@/pages/Home";
 import type { Listing } from "@/types/listing";
@@ -44,10 +44,11 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   
   // Backend returns statuses like PENDING, MISSED, etc.
   const activeBuyers = buyers
-    .filter(b => b.status !== "MISSED")
+    .filter(b => b.status !== "MISSED" && b.status !== "DENIED")
     .sort((a, b) => (a.queuePosition ?? 0) - (b.queuePosition ?? 0));
   const nextBuyer = activeBuyers[0];
   const missedBuyers = buyers.filter(b => b.status === "MISSED");
+  const deniedBuyers = buyers.filter(b => b.status === "DENIED");
   const { toast } = useToast();
   const [interestOpen, setInterestOpen] = useState(false);
   const [editingInterest, setEditingInterest] = useState(false);
@@ -59,10 +60,18 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const [submitting, setSubmitting] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
 
-  // Get my current interest if it exists
-  const myInterest = buyers.find(b => b.buyerEmail === me?.email);
+  // Get my current interest if it exists (prefer stored id, fallback to email match)
+  const storedInterestId = (typeof window !== 'undefined') ? sessionStorage.getItem(`my_interest_${product.id}`) || undefined : undefined;
+  const myInterest =
+    buyers.find(b => (storedInterestId && b.id === storedInterestId)) ||
+    buyers.find(b => (b.buyerEmail && me?.email) ? b.buyerEmail.toLowerCase() === me.email.toLowerCase() : false);
   const hasMyInterest = !!myInterest;
   const isApproved = myInterest?.status === "APPROVED";
+  const isDenied = myInterest?.status === "DENIED";
+  const isNextMe = !!(nextBuyer && (
+    (storedInterestId && nextBuyer.id === storedInterestId) ||
+    ((nextBuyer?.buyerEmail && me?.email) && nextBuyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
+  ));
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -160,13 +169,16 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     try {
       const pickupDate = new Date(pickupTime);
       const priceNumber = parseFloat(offerPrice || "0");
-      await apiRequest("POST", "/api/buying-queue", {
+      const created = await apiRequest("POST", "/api/buying-queue", {
         productId: product.id,
         pickupTime: pickupDate,
         offerPrice: isFree ? null : Math.round(priceNumber * 100),
         hideMe: hideOffer,
         shareContact: shareContact,
       });
+      if (created?.id) {
+        sessionStorage.setItem(`my_interest_${product.id}`, created.id);
+      }
       setInterestOpen(false);
       setPickupTime("");
     setOfferPrice("0");
@@ -221,16 +233,19 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       const pickupDate = new Date(pickupTime);
       const priceNumber = parseFloat(offerPrice || "0");
       
-      // Update the interest - if approved, will reset to pending
-      await apiRequest("PUT", "/api/buying-queue", {
+      // Update the interest - if approved or denied, will reset to pending for re-review
+      const updated = await apiRequest("PUT", "/api/buying-queue", {
         id: myInterest.id,
         productId: product.id,
         pickupTime: pickupDate,
         offerPrice: isFree ? null : Math.round(priceNumber * 100),
         hideMe: hideOffer,
         shareContact: shareContact,
-        status: isApproved ? "PENDING" : myInterest.status, // Reset to pending if was approved
+        status: (isApproved || isDenied) ? "PENDING" : myInterest.status, // Reset to pending if was approved or denied
       });
+      if (updated?.id) {
+        sessionStorage.setItem(`my_interest_${product.id}`, updated.id);
+      }
       
       setInterestOpen(false);
       setEditingInterest(false);
@@ -241,10 +256,10 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     setShareContact(false);
       queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
       
-      if (isApproved) {
+      if (isApproved || isDenied) {
         toast({
           title: "Interest updated",
-          description: "Your changes moved you back to pending status for re-approval",
+          description: "Your changes moved you back to pending status for owner review",
         });
       } else {
         toast({
@@ -290,6 +305,27 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       });
     } finally {
       setWithdrawing(false);
+    }
+  };
+
+  const handleShareContact = async (queueId: string) => {
+    const interest = buyers.find(b => b.id === queueId);
+    if (!interest) return;
+    try {
+      await apiRequest("PUT", "/api/buying-queue", {
+        id: interest.id,
+        productId: product.id,
+        pickupTime: interest.pickupTime,
+        offerPrice: interest.offerPrice ?? null,
+        hideMe: interest.hideMe,
+        shareContact: true,
+        status: interest.status,
+      });
+      if (interest.id) sessionStorage.setItem(`my_interest_${product.id}`, interest.id);
+      queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
+      toast({ title: "Contact shared", description: "Owner can now view your contact details." });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Error", description: e?.message || "Failed to share contact" });
     }
   };
 
@@ -340,29 +376,53 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
           </div>
         )}
 
+        {/* Show pickup address to buyer if their interest has one (shared by owner) */}
+        {!isOwner && myInterest?.pickupAddress && (
+          <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 border border-border rounded-md p-2" data-testid={`div-pickup-address-${product.id}`}>
+            <MapPin className="w-4 h-4 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-foreground">Pickup Address</p>
+              <p className="text-xs break-words" data-testid={`text-pickup-address-${product.id}`}>{myInterest.pickupAddress}</p>
+            </div>
+          </div>
+        )}
+
         {/* Show approved buyer waiting for pickup */}
         {product.status === "AVAILABLE" && nextBuyer && nextBuyer.status === "APPROVED" && (
-          <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-md">
+          <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-md" data-testid={`div-approved-banner-${product.id}`}>
             <div className="flex items-center gap-2">
-              <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
               <div className="flex-1 min-w-0">
-                {nextBuyer.buyerEmail === me?.email ? (
+                {isNextMe ? (
                   <>
-                    <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                    <p className="text-sm font-semibold text-green-700 dark:text-green-400" data-testid={`text-approved-self-${product.id}`}>
                       You're approved for pickup!
                     </p>
-                    <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
+                    <p className="text-xs text-green-600 dark:text-green-500 mt-0.5" data-testid={`text-approved-self-time-${product.id}`}>
                       Pickup time: {format(new Date(nextBuyer.pickupTime), "MMM d, h:mm a")}
+                    </p>
+                    <p className="text-xs text-green-700 dark:text-green-400 mt-0.5" data-testid={`text-approved-self-price-${product.id}`}>
+                      Your price: {nextBuyer.offerPrice == null ? "FREE" : `$${(nextBuyer.offerPrice / 100).toFixed(2)}`}
                     </p>
                   </>
                 ) : (
                   <>
-                    <p className="text-sm font-semibold text-green-700 dark:text-green-400">
-                      Someone is picking this up
+                    <p className="text-sm font-semibold text-green-700 dark:text-green-400" data-testid={`text-approved-owner-${product.id}`}>
+                      {isOwner ? `${nextBuyer.buyerName || "Buyer"} is picking this up` : "Someone is picking this up"}
                     </p>
                     {activeBuyers.length > 1 && (
-                      <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">
+                      <p className="text-xs text-green-600 dark:text-green-500 mt-0.5" data-testid={`text-approved-queuehint-${product.id}`}>
                         Get in queue if they don't show up
+                      </p>
+                    )}
+                    {isOwner && (
+                      <p className="text-xs text-green-700 dark:text-green-400 mt-1" data-testid={`text-approved-owner-price-${product.id}`}>
+                        Approved price: {nextBuyer.offerPrice == null ? "FREE" : `$${(nextBuyer.offerPrice / 100).toFixed(2)}`}
+                      </p>
+                    )}
+                    {isOwner && nextBuyer.pickupAddress && (
+                      <p className="text-xs flex items-center gap-1 text-green-700 dark:text-green-400 mt-1" data-testid={`text-approved-address-shared-${product.id}`}>
+                        <MapPin className="w-3 h-3" /> Pickup address shared
                       </p>
                     )}
                   </>
@@ -389,31 +449,66 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
 
             {expanded && (
               <div className="mt-4 space-y-2" data-testid={`div-queue-${product.id}`}>
-                {activeBuyers.map((buyer, index) => (
-                  <BuyerQueueItem
-                    key={buyer.id}
-                    buyer={buyer}
-                    isNext={index === 0}
-                    isOwner={isOwner}
-                    isSelf={buyer.buyerEmail === me?.email}
-                    ownerAddress={listing?.pickupAddress || product.location || undefined}
-                    onApprove={handleApprove}
-                    onDeny={handleDeny}
-                  />
-                ))}
-                {missedBuyers.map((buyer) => (
-                  <BuyerQueueItem
-                    key={buyer.id}
-                    buyer={buyer}
-                    isNext={false}
-                    isOwner={isOwner}
-                    isSelf={buyer.buyerEmail === me?.email}
-                    ownerAddress={listing?.pickupAddress || product.location || undefined}
-                    onApprove={handleApprove}
-                    onDeny={handleDeny}
-                  />
-                ))}
-                {activeBuyers.length === 0 && missedBuyers.length === 0 && (
+                {activeBuyers.map((buyer, index) => {
+                  const isSelf = !!(
+                    (storedInterestId && buyer.id === storedInterestId) ||
+                    (buyer.buyerEmail && me?.email && buyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
+                  );
+                  return (
+                    <BuyerQueueItem
+                      key={buyer.id}
+                      buyer={buyer}
+                      isNext={index === 0}
+                      isOwner={isOwner}
+                      isSelf={isSelf}
+                      ownerAddress={listing?.pickupAddress || product.location || undefined}
+                      onApprove={handleApprove}
+                      onDeny={handleDeny}
+                      onShareContact={handleShareContact}
+                    />
+                  );
+                })}
+                {missedBuyers.map((buyer) => {
+                  const isSelf = !!(
+                    (storedInterestId && buyer.id === storedInterestId) ||
+                    (buyer.buyerEmail && me?.email && buyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
+                  );
+                  return (
+                    <BuyerQueueItem
+                      key={buyer.id}
+                      buyer={buyer}
+                      isNext={false}
+                      isOwner={isOwner}
+                      isSelf={isSelf}
+                      ownerAddress={listing?.pickupAddress || product.location || undefined}
+                      onApprove={handleApprove}
+                      onDeny={handleDeny}
+                      onShareContact={handleShareContact}
+                    />
+                  );
+                })}
+                {deniedBuyers.map((buyer) => {
+                  const isSelf = !!(
+                    (storedInterestId && buyer.id === storedInterestId) ||
+                    (buyer.buyerEmail && me?.email && buyer.buyerEmail.toLowerCase() === me.email.toLowerCase())
+                  );
+                  // Only render denied interest for owner or the denied buyer themselves
+                  if (!isOwner && !isSelf) return null;
+                  return (
+                    <BuyerQueueItem
+                      key={buyer.id}
+                      buyer={buyer}
+                      isNext={false}
+                      isOwner={isOwner}
+                      isSelf={isSelf}
+                      ownerAddress={listing?.pickupAddress || product.location || undefined}
+                      onApprove={handleApprove}
+                      onDeny={handleDeny}
+                      onShareContact={handleShareContact}
+                    />
+                  );
+                })}
+                {activeBuyers.length === 0 && missedBuyers.length === 0 && deniedBuyers.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No buyers in queue
                   </p>
@@ -470,32 +565,39 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
         <CardFooter className="p-4 pt-0 flex flex-col gap-2">
           {hasMyInterest ? (
             <>
-              <div className="flex gap-2 w-full">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleEditInterest}
-                  data-testid={`button-edit-interest-${product.id}`}
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={handleWithdrawInterest}
-                  disabled={withdrawing}
-                  data-testid={`button-withdraw-interest-${product.id}`}
-                >
-                  {withdrawing ? "Withdrawing..." : "Withdraw"}
-                </Button>
+              <div className="flex flex-col gap-1 w-full">
+                <div className="flex gap-2 w-full">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={handleEditInterest}
+                    data-testid={`button-edit-interest-${product.id}`}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={handleWithdrawInterest}
+                    disabled={withdrawing}
+                    data-testid={`button-withdraw-interest-${product.id}`}
+                  >
+                    {withdrawing ? "Withdrawing..." : "Withdraw"}
+                  </Button>
+                </div>
+                {(isApproved || isDenied) && (
+                  <p className="text-xs text-muted-foreground text-center" data-testid={`text-edit-reset-warning-${product.id}`}>
+                    Editing your interest will resubmit it for owner review
+                  </p>
+                )}
+                {isDenied && (
+                  <p className="text-xs text-red-600 dark:text-red-400 text-center" data-testid={`text-denied-hint-${product.id}`}>
+                    Your previous offer was denied. You can adjust and resubmit.
+                  </p>
+                )}
               </div>
-              {isApproved && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Editing your interest will reset it to pending status
-                </p>
-              )}
             </>
           ) : (
             <Button
