@@ -174,6 +174,23 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     }
   };
 
+  const handleRetract = async (queueId: string) => {
+    try {
+      await apiRequest("POST", `/api/buying-queue/deny?queueId=${queueId}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
+      toast({
+        title: "Approval retracted",
+        description: "Buyer approval has been retracted",
+      });
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: e?.message || "Failed to retract approval",
+      });
+    }
+  };
+
   const handleOpenInterest = async () => {
     if (product.status !== "AVAILABLE") return;
     // Check auth
@@ -605,6 +622,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       ownerAddress={listing?.pickupAddress || product.location || undefined}
                       onApprove={handleApprove}
                       onDeny={handleDeny}
+                      onRetract={handleRetract}
                       onShareContact={handleShareContact}
                       onMessageBuyer={handleMessageBuyer}
                       unreadCount={buyer.buyerId ? getUnreadCount(buyer.buyerId) : 0}
@@ -628,6 +646,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       ownerAddress={listing?.pickupAddress || product.location || undefined}
                       onApprove={handleApprove}
                       onDeny={handleDeny}
+                      onRetract={handleRetract}
                       onShareContact={handleShareContact}
                       onMessageBuyer={handleMessageBuyer}
                       unreadCount={buyer.buyerId ? getUnreadCount(buyer.buyerId) : 0}
@@ -653,6 +672,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       ownerAddress={listing?.pickupAddress || product.location || undefined}
                       onApprove={handleApprove}
                       onDeny={handleDeny}
+                      onRetract={handleRetract}
                       onShareContact={handleShareContact}
                       onMessageBuyer={handleMessageBuyer}
                       unreadCount={buyer.buyerId ? getUnreadCount(buyer.buyerId) : 0}
@@ -678,6 +698,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       ownerAddress={listing?.pickupAddress || product.location || undefined}
                       onApprove={handleApprove}
                       onDeny={handleDeny}
+                      onRetract={handleRetract}
                       onShareContact={handleShareContact}
                       onMessageBuyer={handleMessageBuyer}
                       unreadCount={buyer.buyerId ? getUnreadCount(buyer.buyerId) : 0}

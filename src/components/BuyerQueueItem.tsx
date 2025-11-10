@@ -16,6 +16,7 @@ interface BuyerQueueItemProps {
   isSelf?: boolean;
   onApprove?: (queueId: string, opts?: { shareAddress?: boolean }) => void;
   onDeny?: (queueId: string) => void;
+  onRetract?: (queueId: string) => void;
   ownerAddress?: string; // address available for owner to optionally share
   onShareContact?: (queueId: string) => void;
   onMessageBuyer?: (buyerId: string) => void;
@@ -24,7 +25,7 @@ interface BuyerQueueItemProps {
   ownerId?: string; // Product owner's ID for buyer messaging
 }
 
-export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false, onApprove, onDeny, ownerAddress, onShareContact, onMessageBuyer, unreadCount = 0, onMessageOwner, ownerId }: BuyerQueueItemProps) {
+export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false, onApprove, onDeny, onRetract, ownerAddress, onShareContact, onMessageBuyer, unreadCount = 0, onMessageOwner, ownerId }: BuyerQueueItemProps) {
   const [showContact, setShowContact] = useState(false);
   const [shareAddress, setShareAddress] = useState(false); // owner choosing to share pickup address pre-approval
   const [showHistory, setShowHistory] = useState(false);
@@ -392,20 +393,35 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
             </p>
           </div>
 
-          {/* If address hasn't been shared yet, allow owner to share it post-approval (possibly after a request) */}
-          {ownerAddress && !buyer.pickupAddress && onApprove && (
-            <div className="mt-2 flex flex-col gap-2">
+          <div className="mt-2 flex flex-col gap-2">
+            {/* If address hasn't been shared yet, allow owner to share it post-approval (possibly after a request) */}
+            {ownerAddress && !buyer.pickupAddress && onApprove && (
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onApprove(buyer.id, { shareAddress: true })}
+                  data-testid={`button-share-address-${buyer.id}`}
+                >
+                  <MapPin className="w-4 h-4 mr-1" /> Share pickup address
+                </Button>
+                <p className="text-[10px] text-muted-foreground">Share your address only when ready for this buyer to arrive.</p>
+              </>
+            )}
+            
+            {/* Retract approval button */}
+            {onRetract && (
               <Button
                 size="sm"
-                variant="secondary"
-                onClick={() => onApprove(buyer.id, { shareAddress: true })}
-                data-testid={`button-share-address-${buyer.id}`}
+                variant="outline"
+                onClick={() => onRetract(buyer.id)}
+                data-testid={`button-retract-${buyer.id}`}
+                className="text-destructive hover:text-destructive"
               >
-                <MapPin className="w-4 h-4 mr-1" /> Share pickup address
+                <X className="w-4 h-4 mr-1" /> Retract Approval (Deny)
               </Button>
-              <p className="text-[10px] text-muted-foreground">Share your address only when ready for this buyer to arrive.</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
