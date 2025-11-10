@@ -32,7 +32,7 @@ function Router() {
   <Route path="/legal/:slug" component={LegalPage} />
   <Route path="/verify-email" component={VerifyEmailPage} />
   {/* Handle verification links that hit the SPA under /api/auth/verify-email */}
-  <Route path="/api/auth/verify-email" component={VerifyEmailPage} />
+  <Route path="/api/public/auth/verify-email" component={VerifyEmailPage} />
   <Route path="/reset-password" component={ResetPasswordPage} />
   {/* Handle password reset links that may include /api/auth prefix */}
   <Route path="/api/auth/reset-password" component={ResetPasswordPage} />
