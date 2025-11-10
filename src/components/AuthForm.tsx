@@ -32,6 +32,16 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
     setIsLoading(true);
 
     try {
+    // Client-side validation: enforce minimum password length on signup
+    if (mode === 'signup' && password.length < 8) {
+      toast({
+        variant: 'destructive',
+        title: 'Password too short',
+        description: 'Password must be at least 8 characters long.'
+      });
+      setIsLoading(false);
+      return;
+    }
     // Use root API base without trailing slash; do NOT include '/api' here.
     const apiRoot = (import.meta.env.VITE_API_URL || 'https://api.spacevox.com').replace(/\/$/, '');
     // Auth endpoints live under /api/public/auth/{login|signup}
@@ -124,8 +134,12 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              minLength={mode === 'signup' ? 8 : undefined}
               required
             />
+            {mode === 'signup' && (
+              <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
+            )}
           </div>
           {mode === 'signup' && (
             <>
