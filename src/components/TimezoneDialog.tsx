@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { updateTimezone } from '@/lib/auth';
+import { trackEvent } from '@/lib/analytics';
 
 // Build a comprehensive timezone list with ordering rules:
 // 1) America/* on top (alphabetical)
@@ -93,7 +94,8 @@ export function TimezoneDialog() {
   const onSave = async () => {
     setSaving(true);
     try {
-      await updateTimezone(tz);
+  await updateTimezone(tz);
+  trackEvent('timezone_change', { timezone: tz });
       toast({ title: 'Timezone updated', description: tz });
       setOpen(false);
     } catch (e: any) {

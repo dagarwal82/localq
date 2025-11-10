@@ -3,6 +3,7 @@ import { Switch, Route } from "wouter";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { updateTimezone } from "./lib/auth";
+import { initAnalytics, trackPage } from "./lib/analytics";
 // Global styles are imported via main.tsx; ensure not duplicated.
 import { AuthProvider } from "./components/AuthProvider";
 import { Toaster } from "./components/ui/toaster";
@@ -87,6 +88,8 @@ function App() {
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+    initAnalytics();
+    trackPage(window.location.pathname + window.location.search);
   }, [queryClient]);
 
   return (
