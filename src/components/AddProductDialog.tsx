@@ -28,9 +28,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 interface AddProductDialogProps {
   onAddProduct: (product?: any) => void;
+  triggerButtonOverride?: React.ReactNode;
 }
 
-export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
+export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddProductDialogProps) {
   const [open, setOpen] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const MAX_IMAGES = 3;
@@ -124,9 +125,13 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="default" className="h-9" data-testid="button-add-product">
-          <Plus className="w-4 h-4 mr-2" /> Add Item
-        </Button>
+        {triggerButtonOverride ? (
+          triggerButtonOverride
+        ) : (
+          <Button size="sm" variant="default" className="h-9" data-testid="button-add-product">
+            <Plus className="w-4 h-4 mr-2" /> Add Item
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>

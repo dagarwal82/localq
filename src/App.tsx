@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -41,6 +42,7 @@ function Router() {
 
 function App() {
   const queryClient = useQueryClient();
+  const [location] = useLocation();
   
   // Handle token from OAuth redirect and auto-grant listing access post-auth
   useEffect(() => {
@@ -88,9 +90,17 @@ function App() {
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+    // Initial load analytics
     initAnalytics();
     trackPage(window.location.pathname + window.location.search);
   }, [queryClient]);
+
+  // Track subsequent client-side route changes (SPA navigation)
+  useEffect(() => {
+    // Ignore first mount; initial page tracked above.
+    if (!location) return;
+    trackPage(location + window.location.search);
+  }, [location]);
 
   return (
     <QueryClientProvider client={queryClient}>

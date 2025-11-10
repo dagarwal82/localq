@@ -327,7 +327,15 @@ export default function Home() {
                 <Package className="w-14 h-14 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-semibold mb-2">No items yet</h3>
                 <p className="text-sm text-muted-foreground mb-4">Add your first item to this account’s listings. Each item will belong to one listing.</p>
-                <p className="text-xs text-muted-foreground">Use the Add Item button at the top to add an item.</p>
+                <AddProductDialog
+                  triggerButtonOverride={
+                    <Button data-testid="button-empty-add" className="mx-auto">Add Item</Button>
+                  }
+                  onAddProduct={() => {
+                    queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-2">You can also use the Add Item button at the top bar.</p>
               </div>
             )}
 

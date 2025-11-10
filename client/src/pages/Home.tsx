@@ -218,6 +218,12 @@ export default function Home() {
                 <p className="text-sm text-muted-foreground mb-6">
                   Create your first listing to start managing buyers
                 </p>
+                <AddProductDialog
+                  triggerButtonOverride={
+                    <Button data-testid="button-empty-add" className="mx-auto">Add Item</Button>
+                  }
+                  onAddProduct={(product: Partial<Product>) => addProductMutation.mutate(product)}
+                />
               </div>
             ) : (
               activeProducts.map(product => (
@@ -225,9 +231,9 @@ export default function Home() {
                   key={product.id}
                   product={product}
                   buyers={getBuyersForProduct(product.id)}
-                  onMarkSold={(id) => markSoldMutation.mutate(id)}
-                  onRemove={(id) => removeMutation.mutate(id)}
-                  onAddBuyer={(productId, buyer) => addBuyerMutation.mutate({ productId, buyer })}
+                  onMarkSold={(id: string) => markSoldMutation.mutate(id)}
+                  onRemove={(id: string) => removeMutation.mutate(id)}
+                  onAddBuyer={(productId: string, buyer: Omit<BuyerInterest, "id" | "productId" | "createdAt">) => addBuyerMutation.mutate({ productId, buyer })}
                 />
               ))
             )}
@@ -240,6 +246,14 @@ export default function Home() {
                 <p className="text-sm text-muted-foreground">
                   No sold items yet
                 </p>
+                {activeProducts.length === 0 && (
+                  <AddProductDialog
+                    triggerButtonOverride={
+                      <Button data-testid="button-empty-add-sold" className="mx-auto mt-6" variant="outline">Add Item</Button>
+                    }
+                    onAddProduct={(product: Partial<Product>) => addProductMutation.mutate(product)}
+                  />
+                )}
               </div>
             ) : (
               soldProducts.map(product => (
@@ -257,7 +271,7 @@ export default function Home() {
         </Tabs>
       </main>
 
-      <AddProductDialog onAddProduct={(product) => addProductMutation.mutate(product)} />
+  <AddProductDialog onAddProduct={(product: Partial<Product>) => addProductMutation.mutate(product)} />
     </div>
   );
 }
