@@ -14,11 +14,26 @@ declare global {
 window.addEventListener('beforeinstallprompt', (e: Event) => {
 	// Chrome/Edge: prevent mini-infobar and keep event for custom UI
 	(e as any).preventDefault?.();
-	window.__deferredInstallPrompt = e;
-	window.dispatchEvent(new CustomEvent('pwa:install-available'));
+	try {
+		const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+		const alreadyInstalled = Boolean(localStorage.getItem('pwaInstalled'));
+		// If app is installed (either running standalone or we persisted install), don't surface prompt
+		if (isStandalone || alreadyInstalled) {
+			window.__deferredInstallPrompt = undefined;
+			return;
+		}
+		window.__deferredInstallPrompt = e;
+		window.dispatchEvent(new CustomEvent('pwa:install-available'));
+	} catch {
+		window.__deferredInstallPrompt = e;
+		window.dispatchEvent(new CustomEvent('pwa:install-available'));
+	}
 });
 
 window.addEventListener('appinstalled', () => {
+	try {
+		localStorage.setItem('pwaInstalled', 'true');
+	} catch {}
 	window.__deferredInstallPrompt = undefined;
 	window.dispatchEvent(new CustomEvent('pwa:installed'));
 });

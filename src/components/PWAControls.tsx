@@ -20,8 +20,19 @@ export const PWAControls: React.FC = () => {
   useEffect(() => {
     // If already installed, never show install option
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
-    setInstalled(!!isStandalone);
-    if (isStandalone) setShowInstall(false);
+    const alreadyInstalled = (() => {
+      try { return Boolean(localStorage.getItem('pwaInstalled')); } catch { return false; }
+    })();
+    const installedNow = !!isStandalone || alreadyInstalled;
+    setInstalled(installedNow);
+    if (installedNow) {
+      setShowInstall(false);
+      setDeferredPrompt(null);
+      // Best-effort clear any globally held prompt
+      if (window.__deferredInstallPrompt) {
+        window.__deferredInstallPrompt = undefined;
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -31,6 +42,16 @@ export const PWAControls: React.FC = () => {
       setShowInstall(true);
     }
     function handleInstallAvailable() {
+      const alreadyInstalled = (() => {
+        try { return Boolean(localStorage.getItem('pwaInstalled')); } catch { return false; }
+      })();
+      if (alreadyInstalled) {
+        // Ignore if user already installed previously
+        setShowInstall(false);
+        setDeferredPrompt(null);
+        if (window.__deferredInstallPrompt) window.__deferredInstallPrompt = undefined;
+        return;
+      }
       if (window.__deferredInstallPrompt) {
         setDeferredPrompt(window.__deferredInstallPrompt as BeforeInstallPromptEvent);
         setShowInstall(true);
@@ -41,6 +62,8 @@ export const PWAControls: React.FC = () => {
         setInstalled(true);
         setShowInstall(false);
         setDeferredPrompt(null);
+        try { localStorage.setItem('pwaInstalled', 'true'); } catch {}
+        if (window.__deferredInstallPrompt) window.__deferredInstallPrompt = undefined;
         toast({ title: 'Installed', description: 'SpaceVox added to your device.' });
       }
     window.addEventListener('pwa:install-available', handleInstallAvailable);
@@ -71,6 +94,9 @@ export const PWAControls: React.FC = () => {
       if (choice.outcome === 'accepted') {
         toast({ title: 'Installed', description: 'SpaceVox was added to your device.' });
         setShowInstall(false);
+        try { localStorage.setItem('pwaInstalled', 'true'); } catch {}
+        // Clear any saved prompt so it doesn't reappear
+        if (window.__deferredInstallPrompt) window.__deferredInstallPrompt = undefined;
       } else {
         toast({ title: 'Install dismissed', description: 'Install canceled.' });
       }

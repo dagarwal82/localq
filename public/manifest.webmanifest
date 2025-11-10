@@ -2,7 +2,7 @@
   "id": "/",
   "name": "SpaceVox",
   "short_name": "SpaceVox",
-  "description": "Local marketplace queue management",
+  "description": "Local Selling Platform",
   "start_url": "./?source=pwa",
   "scope": "./",
   "display": "standalone",
