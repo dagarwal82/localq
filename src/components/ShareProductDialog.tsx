@@ -3,16 +3,17 @@ import { QRCodeSVG } from "qrcode.react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Share2, Copy, Check } from "lucide-react";
+import { Share2, Copy, Check, QrCode } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ShareProductDialogProps {
   listingId: string;
   listingKey: string;
   listingName: string;
+  variant?: "full" | "icon";
 }
 
-export function ShareProductDialog({ listingId, listingKey, listingName }: ShareProductDialogProps) {
+export function ShareProductDialog({ listingId, listingKey, listingName, variant = "full" }: ShareProductDialogProps) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   
@@ -40,10 +41,16 @@ export function ShareProductDialog({ listingId, listingKey, listingName }: Share
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full" data-testid={`button-share-${listingId}`}>
-          <Share2 className="w-4 h-4 mr-2" />
-          Share QR Code
-        </Button>
+        {variant === "icon" ? (
+          <Button variant="outline" size="icon" title="Share QR Code">
+            <QrCode className="w-4 h-4" />
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" className="w-full" data-testid={`button-share-${listingId}`}>
+            <Share2 className="w-4 h-4 mr-2" />
+            Share QR Code
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md" data-testid={`dialog-share-${listingId}`}>
         <DialogHeader>

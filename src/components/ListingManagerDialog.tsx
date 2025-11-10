@@ -6,9 +6,10 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent } from "./ui/card";
 import { Separator } from "./ui/separator";
-import { Copy, Plus, Trash2, QrCode, FolderOpen } from "lucide-react";
+import { Plus, Trash2, FolderOpen } from "lucide-react";
 import { apiRequest, queryClient } from "../lib/queryClient";
 import type { Listing } from "../types/listing";
+import { ShareProductDialog } from "./ShareProductDialog";
 
 interface ListingManagerDialogProps {
   triggerClassName?: string;
@@ -25,6 +26,7 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
   const [editDescription, setEditDescription] = useState("");
   const [editPickupAddress, setEditPickupAddress] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { data: listings = [], isLoading } = useQuery<Listing[]>({
     queryKey: ["/api/listings", "mine"],
@@ -91,7 +93,27 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
 
   const deleteMutation = useMutation({
     mutationFn: async (listingId: string) => apiRequest("DELETE", `/api/listings/${listingId}`),
-    onSuccess: () => {
+    onMutate: async (listingId) => {
+      setDeletingId(listingId);
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/listings", "mine"] });
+      
+      // Snapshot the previous value
+      const previousListings = queryClient.getQueryData(["/api/listings", "mine"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData(["/api/listings", "mine"], (old: Listing[] = []) =>
+        old.filter((listing) => listing.id !== listingId)
+      );
+      
+      return { previousListings };
+    },
+    onError: (err, listingId, context) => {
+      // Rollback to the previous value on error
+      queryClient.setQueryData(["/api/listings", "mine"], context?.previousListings);
+    },
+    onSettled: () => {
+      setDeletingId(null);
       queryClient.invalidateQueries({ queryKey: ["/api/listings", "mine"] });
     },
   });
@@ -105,8 +127,6 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
       setCreating(false);
     }
   };
-
-  const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -128,7 +148,7 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
             <Input id="listingDesc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Helps people know what this is for" />
             <Label htmlFor="listingPickup" className="mt-2">Pickup Address (optional)</Label>
             <Input id="listingPickup" value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="123 Main St" />
-            <p className="text-[11px] text-muted-foreground">Address is private; share per buyer on approval.</p>
+            <p className="text-[11px] text-primary font-bold">Address is shared only to the buyers you approve.</p>
             <Button onClick={handleCreate} disabled={creating || !name.trim()} className="mt-2">
               <Plus className="w-4 h-4 mr-2" /> Create Listing
             </Button>
@@ -171,29 +191,29 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Button variant="secondary" size="sm" onClick={() => copyToClipboard(lst.key)}>
-                              <Copy className="w-4 h-4 mr-1" /> Copy Key
-                            </Button>
-                            <a
-                              href={`/api/listings/${lst.id}/qrcode`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center"
-                            >
-                              <Button variant="outline" size="icon" title="QR Code">
-                                <QrCode className="w-4 h-4" />
-                              </Button>
-                            </a>
+                            <ShareProductDialog 
+                              listingId={lst.id} 
+                              listingKey={lst.key} 
+                              listingName={lst.name}
+                              variant="icon"
+                            />
                             <Button variant="outline" size="icon" onClick={() => beginEdit(lst)} title="Edit">
                               ✎
                             </Button>
-                            <Button variant="destructive" size="icon" onClick={() => deleteMutation.mutate(lst.id)}>
-                              <Trash2 className="w-4 h-4" />
+                            <Button 
+                              variant="destructive" 
+                              size="icon" 
+                              onClick={() => deleteMutation.mutate(lst.id)}
+                              disabled={deletingId === lst.id}
+                              title={deletingId === lst.id ? "Deleting..." : "Delete"}
+                            >
+                              {deletingId === lst.id ? (
+                                <span className="animate-spin">⏳</span>
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </Button>
                           </div>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Key: <code className="select-all">{lst.key}</code>
                         </div>
                       </>
                     )}
