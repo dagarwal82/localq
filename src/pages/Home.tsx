@@ -433,10 +433,8 @@ function DetailsMenu() {
       <div className="absolute right-2 mt-2 w-56 rounded-md border border-border bg-popover p-2 shadow-md flex flex-col gap-1 z-50">
         <ListingManagerDialog triggerClassName="justify-start w-full" />
   {/* <AccountAdminsDialog /> Hidden temporarily */}
-        {/* Timezone settings */}
-        <div className="px-1">
-          <TimezoneMenuItem />
-        </div>
+        {/* Timezone settings - hidden for now */}
+        {/* Hidden: TimezoneMenuItem removed entirely */}
         <Button
           variant="destructive"
           size="sm"
@@ -470,8 +468,7 @@ function DetailsMenu() {
   );
 }
 
-import { TimezoneDialog } from "../components/TimezoneDialog";
-
-function TimezoneMenuItem() {
-  return <TimezoneDialog />;
-}
+// import { TimezoneDialog } from "../components/TimezoneDialog";
+// function TimezoneMenuItem() {
+//   return <TimezoneDialog />;
+// }
