@@ -41,7 +41,7 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email,
+          email: email.trim().toLowerCase(),
           password,
           ...(mode === 'signup' ? { firstName, lastName, timezone: detectedTimezone } : {}),
         }),

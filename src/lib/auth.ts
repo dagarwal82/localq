@@ -18,8 +18,9 @@ interface AuthResponse {
 }
 
 export const login = async (email: string, password: string): Promise<AuthResponse> => {
+  const normalizedEmail = email.trim().toLowerCase();
   const response = await axios.post(`${API_URL}/api/public/auth/signin`, {
-    email,
+    email: normalizedEmail,
     password,
   }, { withCredentials: true }); // send cookies
   return response.data;
@@ -32,8 +33,9 @@ export const signup = async (
   lastName?: string,
   timezone?: string
 ): Promise<AuthResponse> => {
+  const normalizedEmail = email.trim().toLowerCase();
   const response = await axios.post(`${API_URL}/api/public/auth/signup`, {
-    email,
+    email: normalizedEmail,
     password,
     firstName,
     lastName,
