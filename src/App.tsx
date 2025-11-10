@@ -15,6 +15,7 @@ import Home from "./pages/Home";
 import Admin from "./pages/Admin";
 import JoinProduct from "./pages/JoinProduct";
 import ListingPage from "./pages/ListingPage";
+import MessagesPage from "./pages/Messages";
 import NotFound from "./pages/not-found";
 import VerifyEmailPage from "./pages/VerifyEmail";
 import ResetPasswordPage from "./pages/ResetPassword";
@@ -27,6 +28,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/home" component={Home} />
       <Route path="/admin" component={Admin} />
+      <Route path="/messages" component={MessagesPage} />
       <Route path="/listing/:listingId" component={ListingPage} />
       <Route path="/join/:productId" component={JoinProduct} />
   <Route path="/legal/:slug" component={LegalPage} />

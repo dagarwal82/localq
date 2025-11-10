@@ -5,7 +5,7 @@ import { ProductCard } from "../components/ProductCard";
 import { AddProductDialog } from "../components/AddProductDialog";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Package, RefreshCw, LogOut, MoreHorizontal, ChevronDown } from "lucide-react";
+import { Package, RefreshCw, LogOut, MoreHorizontal, ChevronDown, MessageSquare } from "lucide-react";
 import { performLogout } from "../lib/authUtils";
 import { useToast } from "../hooks/use-toast";
 import ListingManagerDialog from "../components/ListingManagerDialog";
@@ -25,6 +25,7 @@ export interface Product {
   price: number;
   status: string;
   accountId: string;
+  ownerId: string;
   listingId?: string;
   images?: ProductImage[];
   location?: string;
@@ -58,6 +59,7 @@ export interface BuyerInterest {
   phone?: string | null;
   shareContact?: boolean; // buyer opted to share contact with owner
   pickupAddress?: string | null; // set by backend when shareAddress approved
+  buyerId?: string; // The user account ID of the buyer for messaging
 }
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -397,6 +399,7 @@ export default function Home() {
 // Lightweight details dropdown (native <details>) for mobile secondary actions
 function DetailsMenu() {
   const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const handleOutside = (e: MouseEvent | TouchEvent) => {
@@ -432,6 +435,14 @@ function DetailsMenu() {
       </summary>
       <div className="absolute right-2 mt-2 w-56 rounded-md border border-border bg-popover p-2 shadow-md flex flex-col gap-1 z-50">
         <ListingManagerDialog triggerClassName="justify-start w-full" />
+        <Button
+          variant="outline"
+          size="sm"
+          className="justify-start w-full"
+          onClick={() => setLocation("/messages")}
+        >
+          <MessageSquare className="w-4 h-4 mr-2" /> Messages
+        </Button>
   {/* <AccountAdminsDialog /> Hidden temporarily */}
         {/* Timezone settings - hidden for now */}
         {/* Hidden: TimezoneMenuItem removed entirely */}

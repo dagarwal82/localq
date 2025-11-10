@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { Package, Clock, DollarSign, Users, ChevronDown, ChevronUp, CalendarDays, MapPin } from "lucide-react";
+import { Package, Clock, DollarSign, Users, ChevronDown, ChevronUp, CalendarDays, MapPin, MessageSquare } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 import type { Product, BuyerInterest } from "@/pages/Home";
@@ -12,6 +12,7 @@ import type { Listing } from "@/types/listing";
 import { BuyerQueueItem } from "./BuyerQueueItem";
 // Removed AddBuyerDialog: buyers now self-register via interest dialog
 import { ShareProductDialog } from "./ShareProductDialog";
+import { MessageThread } from "./MessageThread";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,7 +46,26 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   });
   
   // Check if current user is the actual owner of this product
-  const isProductOwner = me?.id === product.accountId;
+  const isProductOwner = me?.id === product.ownerId;
+
+  // Get conversations for unread message indicators
+  type Conversation = {
+    id: string;
+    participantId: string;
+    unreadCount: number;
+  };
+  const { data: conversations = [] } = useQuery<Conversation[]>({
+    queryKey: ["/api/conversations"],
+    queryFn: async () => apiRequest("GET", "/api/conversations"),
+    enabled: !!me?.id,
+    staleTime: 10_000, // Refresh every 10 seconds
+  });
+
+  // Helper to get unread count for a specific user
+  const getUnreadCount = (userId: string) => {
+    const conv = conversations.find(c => c.participantId === userId);
+    return conv?.unreadCount || 0;
+  };
   
   // Backend returns statuses like PENDING, MISSED, etc.
   const activeBuyers = buyers
@@ -68,6 +88,8 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const [justWithdrew, setJustWithdrew] = useState(false); // suppress edit/withdraw buttons immediately after withdrawal until refetch
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  const [showMessageThread, setShowMessageThread] = useState(false);
+  const [messageRecipientId, setMessageRecipientId] = useState<string | undefined>();
 
   // Get my current interest if it exists (prefer stored id, fallback to email match)
   const storedInterestId = (typeof window !== 'undefined') ? sessionStorage.getItem(`my_interest_${product.id}`) || undefined : undefined;
@@ -174,6 +196,32 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       }
       // Open inline auth dialog instead of redirecting
       setAuthMode('signup');
+      setShowAuthDialog(true);
+    }
+  };
+
+  const handleMessageSeller = async () => {
+    // Check auth first
+    try {
+      const user = await apiRequest("GET", "/api/auth/me");
+      if (!user || !user.email) throw new Error("Not authenticated");
+      setMessageRecipientId(product.ownerId);
+      setShowMessageThread(true);
+    } catch {
+      // Show inline auth dialog
+      setAuthMode('login');
+      setShowAuthDialog(true);
+    }
+  };
+
+  const handleMessageBuyer = async (buyerId: string) => {
+    try {
+      const user = await apiRequest("GET", "/api/auth/me");
+      if (!user || !user.email) throw new Error("Not authenticated");
+      setMessageRecipientId(buyerId);
+      setShowMessageThread(true);
+    } catch {
+      setAuthMode('login');
       setShowAuthDialog(true);
     }
   };
@@ -553,6 +601,10 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       onApprove={handleApprove}
                       onDeny={handleDeny}
                       onShareContact={handleShareContact}
+                      onMessageBuyer={handleMessageBuyer}
+                      unreadCount={buyer.buyerId ? getUnreadCount(buyer.buyerId) : 0}
+                      onMessageOwner={handleMessageSeller}
+                      ownerId={product.ownerId}
                     />
                   );
                 })}
@@ -572,6 +624,10 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       onApprove={handleApprove}
                       onDeny={handleDeny}
                       onShareContact={handleShareContact}
+                      onMessageBuyer={handleMessageBuyer}
+                      unreadCount={buyer.buyerId ? getUnreadCount(buyer.buyerId) : 0}
+                      onMessageOwner={handleMessageSeller}
+                      ownerId={product.ownerId}
                     />
                   );
                 })}
@@ -593,6 +649,10 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       onApprove={handleApprove}
                       onDeny={handleDeny}
                       onShareContact={handleShareContact}
+                      onMessageBuyer={handleMessageBuyer}
+                      unreadCount={buyer.buyerId ? getUnreadCount(buyer.buyerId) : 0}
+                      onMessageOwner={handleMessageSeller}
+                      ownerId={product.ownerId}
                     />
                   );
                 })}
@@ -614,6 +674,10 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                       onApprove={handleApprove}
                       onDeny={handleDeny}
                       onShareContact={handleShareContact}
+                      onMessageBuyer={handleMessageBuyer}
+                      unreadCount={buyer.buyerId ? getUnreadCount(buyer.buyerId) : 0}
+                      onMessageOwner={handleMessageSeller}
+                      ownerId={product.ownerId}
                     />
                   );
                 })}
@@ -701,15 +765,25 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
           ) : (
             // Only show "I'm Interested" when user doesn't already have an approved interest
             !isApproved && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={handleOpenInterest}
-                data-testid={`button-express-interest-${product.id}`}
-              >
-                I'm Interested
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleOpenInterest}
+                  data-testid={`button-express-interest-${product.id}`}
+                >
+                  I'm Interested
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMessageSeller}
+                  data-testid={`button-message-seller-${product.id}`}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                </Button>
+              </div>
             )
           )}
           <ShareProductDialog
@@ -891,6 +965,14 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Message Thread Dialog */}
+      <MessageThread
+        recipientId={messageRecipientId}
+        productId={product.id}
+        open={showMessageThread}
+        onOpenChange={setShowMessageThread}
+      />
     </Card>
   );
 }

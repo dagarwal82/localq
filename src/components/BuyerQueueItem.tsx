@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { Clock, DollarSign, Mail, ChevronDown, ChevronUp, Check, X, EyeOff, MapPin, Share2, History, HelpCircle } from "lucide-react";
+import { Clock, DollarSign, Mail, ChevronDown, ChevronUp, Check, X, EyeOff, MapPin, Share2, History, HelpCircle, MessageSquare } from "lucide-react";
 import type { BuyerInterest } from "../pages/Home";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
@@ -18,9 +18,13 @@ interface BuyerQueueItemProps {
   onDeny?: (queueId: string) => void;
   ownerAddress?: string; // address available for owner to optionally share
   onShareContact?: (queueId: string) => void;
+  onMessageBuyer?: (buyerId: string) => void;
+  unreadCount?: number; // Number of unread messages from this buyer
+  onMessageOwner?: (ownerId: string) => void; // For buyers to message the owner
+  ownerId?: string; // Product owner's ID for buyer messaging
 }
 
-export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false, onApprove, onDeny, ownerAddress, onShareContact }: BuyerQueueItemProps) {
+export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false, onApprove, onDeny, ownerAddress, onShareContact, onMessageBuyer, unreadCount = 0, onMessageOwner, ownerId }: BuyerQueueItemProps) {
   const [showContact, setShowContact] = useState(false);
   const [shareAddress, setShareAddress] = useState(false); // owner choosing to share pickup address pre-approval
   const [showHistory, setShowHistory] = useState(false);
@@ -260,6 +264,62 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
           >
             <X className="w-4 h-4 mr-1" />
             Deny
+          </Button>
+          {onMessageBuyer && buyer.buyerId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onMessageBuyer(buyer.buyerId!)}
+              data-testid={`button-message-buyer-${buyer.id}`}
+              title="Message buyer"
+              className="relative"
+            >
+              <MessageSquare className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Message button for non-pending buyers (approved, missed, etc.) */}
+      {isOwner && !isPending && onMessageBuyer && buyer.buyerId && (
+        <div className="px-3 pb-3 border-t border-border pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full relative"
+            onClick={() => onMessageBuyer(buyer.buyerId!)}
+            data-testid={`button-message-buyer-${buyer.id}`}
+            title="Message buyer"
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Message
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                {unreadCount}
+              </span>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {/* Buyer message button - buyers can message seller anytime */}
+      {isSelf && onMessageOwner && ownerId && (
+        <div className="px-3 pb-3 border-t border-border pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onMessageOwner(ownerId)}
+            data-testid={`button-message-owner-${buyer.id}`}
+            title="Message seller"
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Message Seller
           </Button>
         </div>
       )}

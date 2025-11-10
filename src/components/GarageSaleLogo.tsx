@@ -14,11 +14,11 @@ export function GarageSaleLogo({ className = "", size = 40 }: GarageSaleLogoProp
   if (useImage) {
     return (
       <img
-        src="/spacevox-garage.svg"
+        src="/logo.svg"
         width={size}
         height={size}
         alt="SpaceVox logo"
-        className={`inline-block rounded-md object-cover ${className}`}
+        className={`inline-block ${className}`}
         onError={() => setUseImage(false)}
       />
     );
