@@ -51,14 +51,30 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle unverified email specifically on login flow
+        if (mode === 'login' && (data?.error === 'EMAIL_NOT_VERIFIED' || data?.code === 'EMAIL_NOT_VERIFIED')) {
+          toast({
+            title: 'Email not verified',
+            description: 'Please verify your email before signing in. Check your inbox for the verification email (and your spam folder).',
+          });
+          return; // Stop further handling
+        }
         throw new Error(data.error || 'Authentication failed');
       }
 
       // No need to store token in localStorage, backend sets httpOnly cookie
-      toast({
-        title: mode === 'login' ? 'Welcome back!' : 'Account created!',
-        description: 'You have been successfully authenticated.',
-      });
+      // Messaging: after signup, prompt user to verify email first
+      if (mode === 'signup') {
+        toast({
+          title: 'Account created!',
+          description: 'Please check your inbox and verify your email before signing in.',
+        });
+      } else {
+        toast({
+          title: 'Welcome back!',
+          description: 'You have been successfully authenticated.',
+        });
+      }
 
       onSuccess?.();
     } catch (error) {
