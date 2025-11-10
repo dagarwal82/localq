@@ -152,7 +152,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     if (product.status !== "AVAILABLE") return;
     // Check auth
     try {
-      const me = await apiRequest("GET", "/api/public/auth/me");
+      const me = await apiRequest("GET", "/api/auth/me");
       if (!me || !me.email) throw new Error("Not authenticated");
       setInterestOpen(true);
     } catch {
