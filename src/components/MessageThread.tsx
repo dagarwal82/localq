@@ -26,6 +26,7 @@ interface MessageThreadProps {
   productName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  inline?: boolean; // When true, render without Dialog wrapper
 }
 
 export function MessageThread({
@@ -36,6 +37,7 @@ export function MessageThread({
   productName,
   open,
   onOpenChange,
+  inline = false,
 }: MessageThreadProps) {
   const [messageText, setMessageText] = useState('');
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -228,130 +230,145 @@ export function MessageThread({
     return format(date, 'MMM d, h:mm a');
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg h-[600px] flex flex-col p-0 [&>button]:hidden">
-        <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
-                <div className="bg-primary/10 text-primary font-semibold flex items-center justify-center w-full h-full">
-                  {(conversation?.participantName || recipientName || 'M')?.charAt(0).toUpperCase()}
-                </div>
-              </Avatar>
-              <div>
-                <DialogTitle className="text-base">
-                  {conversation?.participantName || recipientName || 'Messaging'}
-                </DialogTitle>
-                {(conversation?.productTitle || productName) && (
-                  <p className="text-xs text-muted-foreground">
-                    Re: {conversation?.productTitle || productName}
-                  </p>
-                )}
+  // Shared content for both inline and dialog modes
+  const threadContent = (
+    <>
+      {/* Header */}
+      <div className="px-4 py-3 border-b flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <div className="bg-primary/10 text-primary font-semibold flex items-center justify-center w-full h-full">
+                {(conversation?.participantName || recipientName || 'M')?.charAt(0).toUpperCase()}
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {!isConnected && (
-                <Badge variant="outline" className="text-xs">
-                  <AlertCircle className="w-3 h-3 mr-1" />
-                  Offline
-                </Badge>
+            </Avatar>
+            <div>
+              <h2 className="text-base font-semibold">
+                {conversation?.participantName || recipientName || 'Messaging'}
+              </h2>
+              {(conversation?.productTitle || productName) && (
+                <p className="text-xs text-muted-foreground">
+                  Re: {conversation?.productTitle || productName}
+                </p>
               )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => blockMutation.mutate(!conversation?.blockedByMe)}
-                    className="text-destructive"
-                    disabled={!actualConversationId}
-                  >
-                    <Ban className="w-4 h-4 mr-2" />
-                    {conversation?.blockedByMe ? 'Unblock User' : 'Block User'}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {!isConnected && (
+              <Badge variant="outline" className="text-xs">
+                <AlertCircle className="w-3 h-3 mr-1" />
+                Offline
+              </Badge>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => blockMutation.mutate(!conversation?.blockedByMe)}
+                  className="text-destructive"
+                  disabled={!actualConversationId}
+                >
+                  <Ban className="w-4 h-4 mr-2" />
+                  {conversation?.blockedByMe ? 'Unblock User' : 'Block User'}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {!inline && (
               <DialogClose asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
                   <X className="w-4 h-4" />
                 </Button>
               </DialogClose>
-            </div>
+            )}
           </div>
-        </DialogHeader>
+        </div>
+      </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              Loading messages...
-            </div>
-          ) : allMessages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-              <p className="text-sm">No messages yet</p>
-              <p className="text-xs mt-1">Start the conversation!</p>
-            </div>
-          ) : (
-            allMessages.map((message) => {
-              const isMe = message.senderId === currentUser?.id;
-              return (
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            Loading messages...
+          </div>
+        ) : allMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+            <p className="text-sm">No messages yet</p>
+            <p className="text-xs mt-1">Start the conversation!</p>
+          </div>
+        ) : (
+          allMessages.map((message) => {
+            const isMe = message.senderId === currentUser?.id;
+            return (
+              <div
+                key={message.id}
+                className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+              >
                 <div
-                  key={message.id}
-                  className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
+                  className={`max-w-[75%] rounded-lg px-3 py-2 ${
+                    isMe
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-foreground'
+                  }`}
                 >
-                  <div
-                    className={`max-w-[75%] rounded-lg px-3 py-2 ${
-                      isMe
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground'
+                  <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
+                  <p
+                    className={`text-xs mt-1 ${
+                      isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        isMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {formatMessageTime(message.createdAt)}
-                    </p>
-                  </div>
+                    {formatMessageTime(message.createdAt)}
+                  </p>
                 </div>
-              );
-            })
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
 
-        {/* Input */}
-        <div className="border-t px-4 py-3 flex-shrink-0">
-          {conversation?.isBlocked ? (
-            <div className="text-center text-sm text-muted-foreground py-2">
-              <Ban className="w-4 h-4 inline-block mr-1" />
-              This conversation is blocked
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                value={messageText}
-                onChange={(e) => setMessageText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="Type a message..."
-                className="flex-1"
-                disabled={sendMutation.isPending}
-              />
-              <Button
-                onClick={handleSend}
-                disabled={!messageText.trim() || sendMutation.isPending}
-                size="icon"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-        </div>
+      {/* Input */}
+      <div className="border-t px-4 py-3 flex-shrink-0">
+        {conversation?.isBlocked ? (
+          <div className="text-center text-sm text-muted-foreground py-2">
+            <Ban className="w-4 h-4 inline-block mr-1" />
+            This conversation is blocked
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              placeholder="Type a message..."
+              className="flex-1"
+              disabled={sendMutation.isPending}
+            />
+            <Button
+              onClick={handleSend}
+              disabled={!messageText.trim() || sendMutation.isPending}
+              size="icon"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  // Render inline or in dialog
+  if (inline) {
+    return <div className="h-full flex flex-col">{threadContent}</div>;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg h-[600px] flex flex-col p-0 [&>button]:hidden">
+        {threadContent}
       </DialogContent>
     </Dialog>
   );

@@ -11,6 +11,7 @@ import { useToast } from "../hooks/use-toast";
 import { RefreshCw, ArrowLeft } from "lucide-react";
 import type { Product } from "./Home";
 import type { Listing } from "../types/listing";
+import { addToViewHistory } from "../lib/viewHistory";
 
 export default function ListingPage() {
   const [, params] = useRoute("/listing/:listingId");
@@ -118,26 +119,23 @@ export default function ListingPage() {
   });
 
   // Fetch listing details using private endpoint for authenticated users without key
-  const { data: privateListing } = useQuery<Listing>({
+  const { data: privateListingData, isLoading: privateLoading } = useQuery<Listing & { products: Product[] }>({
     queryKey: ["/api/listings", listingId],
     queryFn: () => apiRequest("GET", `/api/listings/${listingId}`),
     enabled: hasAccess === true && !effectiveKey,
   });
 
-  // Fetch items using private endpoint for authenticated users without key
-  const { data: privateItems = [], isLoading: privateItemsLoading } = useQuery<Product[]>({
-    queryKey: ["/api/products", "listing", listingId],
-    queryFn: async () => {
-      const allProducts = await apiRequest("GET", "/api/products");
-      return allProducts.filter((p: Product) => p.listingId === listingId);
-    },
-    enabled: hasAccess === true && !effectiveKey,
-  });
-
   // Use public or private data depending on what's available
-  const listing: Listing | undefined = publicListingData || privateListing;
-  const items: Product[] = publicListingData?.products || privateItems;
-  const itemsLoading = effectiveKey ? publicLoading : privateItemsLoading;
+  const listing: Listing | undefined = publicListingData || privateListingData;
+  const items: Product[] = publicListingData?.products || privateListingData?.products || [];
+  const itemsLoading = effectiveKey ? publicLoading : privateLoading;
+
+  // Track listing view when listing data is loaded
+  useEffect(() => {
+    if (listing && listingId) {
+      addToViewHistory(listingId, listing.name);
+    }
+  }, [listing, listingId]);
 
   const handleVerifyKey = () => {
     if (keyInput.trim()) {

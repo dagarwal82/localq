@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "../lib/queryClient";
 import { ProductCard } from "../components/ProductCard";
 import { AddProductDialog } from "../components/AddProductDialog";
+import { RecentlyViewed } from "../components/RecentlyViewedListings";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Package, RefreshCw, LogOut, MoreHorizontal, ChevronDown, MessageSquare } from "lucide-react";
@@ -265,6 +266,8 @@ export default function Home() {
       </header>
 
       <main className="container max-w-4xl mx-auto px-4 py-6">
+        <RecentlyViewed />
+        
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="w-full grid grid-cols-2 mb-6">
             <TabsTrigger value="active" data-testid="tab-active">
