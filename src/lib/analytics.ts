@@ -2,6 +2,8 @@
 // Currently supports Google Analytics 4 (gtag.js) via VITE_GA_MEASUREMENT_ID.
 // Easily extendable to other backends (PostHog, Plausible) by adding branches.
 
+import { loadConfig, getCachedConfig } from './config';
+
 type AnalyticsEventParams = Record<string, any>;
 
 interface AnalyticsBackend {
@@ -18,12 +20,45 @@ declare global {
   }
 }
 
-// Raw env may include accidental wrapping quotes in .env; normalize.
-const GA_ID_RAW = import.meta.env.VITE_GA_MEASUREMENT_ID as string | 'G-83C9CYLTR7';
-// Strip single or double quotes if user included them in .env (common mistake)
-const GA_ID = GA_ID_RAW?.replace(/^['"]|['"]$/g, '') || undefined;
-const DISABLED = (import.meta.env.VITE_DISABLE_ANALYTICS as string | undefined)?.toLowerCase() === 'true';
+// Build-time env fallbacks (used if runtime config.json missing)
+const GA_ID_ENV_RAW = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+const GA_ID_ENV = GA_ID_ENV_RAW?.replace(/^['"]|['"]$/g, '') || undefined;
+const DISABLED_ENV = (import.meta.env.VITE_DISABLE_ANALYTICS as string | undefined)?.toLowerCase() === 'true';
+const ENABLE_LOCALHOST_ENV = (import.meta.env.VITE_ENABLE_ANALYTICS_ON_LOCALHOST as string | undefined)?.toLowerCase() === 'true';
+const DEBUG_ENV = (import.meta.env.VITE_ANALYTICS_DEBUG as string | undefined)?.toLowerCase() === 'true';
 const IS_LOCALHOST = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+
+type AnalyticsSettings = {
+  gaId?: string;
+  disabled: boolean;
+  enableLocalhost: boolean;
+  debug: boolean;
+};
+
+let settingsLoaded = false;
+let settings: AnalyticsSettings = {
+  gaId: GA_ID_ENV,
+  disabled: !!DISABLED_ENV,
+  enableLocalhost: !!ENABLE_LOCALHOST_ENV,
+  debug: !!DEBUG_ENV,
+};
+
+async function ensureSettings(): Promise<void> {
+  if (settingsLoaded) return;
+  try {
+    const cfg = await loadConfig();
+    const a = cfg.analytics || {};
+    settings = {
+      gaId: a.gaMeasurementId ?? GA_ID_ENV,
+      disabled: (typeof a.disable === 'boolean' ? a.disable : DISABLED_ENV) ?? false,
+      enableLocalhost: (typeof a.enableOnLocalhost === 'boolean' ? a.enableOnLocalhost : ENABLE_LOCALHOST_ENV) ?? false,
+      debug: (typeof a.debug === 'boolean' ? a.debug : DEBUG_ENV) ?? false,
+    };
+  } catch {
+    // keep env fallbacks
+  }
+  settingsLoaded = true;
+}
 
 interface AnalyticsStatus {
   gaId?: string;
@@ -48,26 +83,35 @@ function loadGa(measurementId: string) {
 }
 
 const gaBackend: AnalyticsBackend = {
-  init() {
-    if (!GA_ID) {
-      debug("GA init skipped: GA_ID missing", { GA_ID_RAW });
+  async init() {
+    await ensureSettings();
+    const { gaId, disabled, enableLocalhost } = settings;
+    if (!gaId) {
+      debug("GA init skipped: GA_ID missing", { envFallback: GA_ID_ENV });
       return;
     }
-    if (DISABLED) {
+    if (disabled) {
       debug("GA init skipped: disabled flag set");
       return;
     }
-    if (IS_LOCALHOST) {
-      debug("GA init skipped: localhost environment");
+    if (IS_LOCALHOST && !enableLocalhost) {
+      debug("GA init skipped: localhost environment (set config.analytics.enableOnLocalhost=true) ");
       return;
     }
-    loadGa(GA_ID);
-    debug("GA init loaded", { GA_ID });
+    loadGa(gaId);
+    debug("GA init loaded", { gaId });
   },
   pageview(path = document.location.pathname + document.location.search) {
-    if (!GA_ID) return;
-    if (DISABLED || IS_LOCALHOST) return;
+    const { gaId, disabled, enableLocalhost } = settings;
+    if (!gaId) return;
+    if (disabled || (IS_LOCALHOST && !enableLocalhost)) return;
     if (!window.gtag) {
+      ensureSettings().then(() => {
+        if (window.gtag) {
+          (window.gtag as any)('event', 'page_view', { page_location: window.location.href, page_path: path });
+          debug("pageview (late)", { path });
+        }
+      });
       debug("pageview skipped: gtag not present yet", { path });
       return;
     }
@@ -75,9 +119,16 @@ const gaBackend: AnalyticsBackend = {
     debug("pageview", { path });
   },
   event(name, params) {
-    if (!GA_ID) return;
-    if (DISABLED || IS_LOCALHOST) return;
+    const { gaId, disabled, enableLocalhost } = settings;
+    if (!gaId) return;
+    if (disabled || (IS_LOCALHOST && !enableLocalhost)) return;
     if (!window.gtag) {
+      ensureSettings().then(() => {
+        if (window.gtag) {
+          (window.gtag as any)('event', name, params || {});
+          debug("event (late)", { name, params });
+        }
+      });
       debug("event skipped: gtag not present", { name, params });
       return;
     }
@@ -85,7 +136,8 @@ const gaBackend: AnalyticsBackend = {
     debug("event", { name, params });
   },
   identify(id, traits) {
-    if (!GA_ID || DISABLED || IS_LOCALHOST || !window.gtag) return;
+    const { gaId, disabled, enableLocalhost } = settings;
+    if (!gaId || disabled || (IS_LOCALHOST && !enableLocalhost) || !window.gtag) return;
     if (id) {
       (window.gtag as any)('set', { user_id: id, ...traits });
       debug("identify", { id, traits });
@@ -98,28 +150,30 @@ const backend: AnalyticsBackend = gaBackend;
 let initialized = false;
 
 function debug(msg: string, extra?: Record<string, any>) {
-  // Guard behind a condition so we can silence in prod easily later.
-  if ((import.meta.env.VITE_ANALYTICS_DEBUG as string | undefined)?.toLowerCase() === 'true') {
+  const cfg = getCachedConfig();
+  const cfgDebug = cfg?.analytics?.debug;
+  if (cfgDebug || settings.debug) {
     // eslint-disable-next-line no-console
     console.info(`[analytics] ${msg}`, extra || {});
   }
 }
 
 export function analyticsStatus(): AnalyticsStatus {
+  const { gaId, disabled, enableLocalhost } = settings;
   return {
-    gaId: GA_ID,
-    disabled: DISABLED,
+    gaId,
+    disabled,
     isLocalhost: IS_LOCALHOST,
     initialized,
     gtagPresent: typeof window !== 'undefined' && !!window.gtag,
-    reason: !GA_ID ? 'missing-id' : DISABLED ? 'disabled-flag' : IS_LOCALHOST ? 'localhost' : undefined,
+    reason: !gaId ? 'missing-id' : disabled ? 'disabled-flag' : (IS_LOCALHOST && !enableLocalhost) ? 'localhost-blocked' : undefined,
   };
 }
 
-export function initAnalytics() {
+export async function initAnalytics() {
   if (initialized) return;
   initialized = true;
-  backend.init();
+  await backend.init();
   debug("initAnalytics called", analyticsStatus());
 }
 
