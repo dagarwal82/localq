@@ -88,7 +88,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
         </Avatar>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <p className={`text-base font-medium text-foreground ${(isMissed || isDenied || isWithdrawn) ? "line-through" : ""}`} data-testid={`text-buyer-name-${buyer.id}`}>
               {isOwner ? (buyer.buyerName || "Buyer") : (isSelf ? (buyer.buyerName || "You") : "Interested buyer")}
             </p>

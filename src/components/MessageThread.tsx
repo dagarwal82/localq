@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { Send, MoreVertical, Ban, AlertCircle } from 'lucide-react';
+import { Send, MoreVertical, Ban, AlertCircle, X } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import type { Message, Conversation } from '@/types/message';
 import {
@@ -212,7 +212,7 @@ export function MessageThread({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg h-[600px] flex flex-col p-0">
+      <DialogContent className="sm:max-w-lg h-[600px] flex flex-col p-0 [&>button]:hidden">
         <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -232,7 +232,7 @@ export function MessageThread({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               {!isConnected && (
                 <Badge variant="outline" className="text-xs">
                   <AlertCircle className="w-3 h-3 mr-1" />
@@ -256,6 +256,11 @@ export function MessageThread({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <DialogClose asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <X className="w-4 h-4" />
+                </Button>
+              </DialogClose>
             </div>
           </div>
         </DialogHeader>
