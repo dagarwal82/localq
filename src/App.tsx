@@ -46,6 +46,7 @@ function App() {
   
   // Handle token from OAuth redirect and auto-grant listing access post-auth
   useEffect(() => {
+    const run = async () => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const error = params.get('error');
@@ -91,8 +92,10 @@ function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
     // Initial load analytics
-    initAnalytics();
+    await initAnalytics();
     trackPage(window.location.pathname + window.location.search);
+    };
+    run();
   }, [queryClient]);
 
   // Track subsequent client-side route changes (SPA navigation)

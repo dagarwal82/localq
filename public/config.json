@@ -1,0 +1,11 @@
+{
+  "analytics": {
+    "gaMeasurementId": "G-83C9CYLTR7",
+    "disable": false,
+    "enableOnLocalhost": false,
+    "debug": false
+  },
+  "api": {
+    "baseUrl": "https://api.spacevox.com"
+  }
+}

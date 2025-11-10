@@ -26,12 +26,22 @@ function stripQuotes(v?: string): string | undefined {
 export async function loadConfig(): Promise<AppConfig> {
   if (configCache) return configCache;
   if (!configPromise) {
+    // Try root-relative first; many CDNs rewrite unknown paths to index.html.
+    // If that happens, we'll detect HTML content and fall back to env.
     configPromise = fetch('/config.json', { cache: 'no-store' })
       .then(async (r) => {
         if (!r.ok) return {} as AppConfig;
+        const text = await r.text();
+        // Heuristic: if it starts with '<!DOCTYPE' or '<html', it's not JSON.
+        const looksLikeHtml = /^\s*<!DOCTYPE|^\s*<html/i.test(text);
+        if (looksLikeHtml) {
+          console.warn('[config] /config.json returned HTML; falling back to env');
+          return {} as AppConfig;
+        }
         try {
-          return (await r.json()) as AppConfig;
+          return JSON.parse(text) as AppConfig;
         } catch {
+          console.warn('[config] Failed to parse /config.json; falling back to env');
           return {} as AppConfig;
         }
       })

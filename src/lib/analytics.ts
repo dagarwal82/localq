@@ -54,8 +54,10 @@ async function ensureSettings(): Promise<void> {
       enableLocalhost: (typeof a.enableOnLocalhost === 'boolean' ? a.enableOnLocalhost : ENABLE_LOCALHOST_ENV) ?? false,
       debug: (typeof a.debug === 'boolean' ? a.debug : DEBUG_ENV) ?? false,
     };
+    debug('settings loaded', settings);
   } catch {
     // keep env fallbacks
+    debug('settings load failed; using env fallbacks', settings);
   }
   settingsLoaded = true;
 }
@@ -145,7 +147,7 @@ const gaBackend: AnalyticsBackend = {
   }
 };
 
-// For now only GA; could switch based on env flags.
+// For now only GA; could switch based on env flags and runtime config.
 const backend: AnalyticsBackend = gaBackend;
 let initialized = false;
 
@@ -175,6 +177,12 @@ export async function initAnalytics() {
   initialized = true;
   await backend.init();
   debug("initAnalytics called", analyticsStatus());
+  // If GA script hasn't attached after short delay, log status for troubleshooting.
+  setTimeout(() => {
+    if (!window.gtag) {
+      debug('gtag still missing after init delay', analyticsStatus());
+    }
+  }, 1000);
 }
 
 export function trackPage(path?: string) {
