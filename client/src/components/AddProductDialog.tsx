@@ -15,7 +15,8 @@ import { z } from "zod";
 const productFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
-  price: z.number().min(0, "Price must be 0 or greater"),
+  // Coerce string input to number, still validates >= 0
+  price: z.coerce.number().min(0, "Price must be 0 or greater"),
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -39,7 +40,8 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
     defaultValues: {
       title: "",
       description: "",
-      price: 0,
+      // Leave price empty by default so user doesn't fight a pre-filled 0
+      price: undefined as any,
     },
   });
 
@@ -191,11 +193,22 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                     <Input
                       {...field}
                       type="number"
+                      inputMode="decimal"
                       step="0.01"
                       min="0"
                       placeholder="0.00"
-                      value={field.value}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.onChange(parseFloat(e.target.value) || 0)}
+                      // Allow clearing the field by mapping undefined -> ''
+                      value={field.value ?? ""}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        const v = e.target.value;
+                        // Let user clear the field; validation will enforce a number on submit
+                        if (v === "") {
+                          field.onChange("");
+                        } else {
+                          // Keep as string; z.coerce.number() will parse/validate
+                          field.onChange(v);
+                        }
+                      }}
                       data-testid="input-price"
                     />
                   </FormControl>

@@ -14,10 +14,11 @@ import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import type { Listing } from "../types/listing";
 
+// Allow the price input to be cleared and typed freely; coerce to number for validation/submit.
 const productFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
-  price: z.number().min(0, "Price must be 0 or greater"),
+  price: z.coerce.number().min(0, "Price must be 0 or greater"),
   listingId: z.string().min(1, "Please select a listing"),
 });
 
@@ -47,7 +48,8 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
     defaultValues: {
       title: "",
       description: "",
-      price: 0,
+      // Start empty so user doesn't fight a pre-filled 0
+      price: undefined as any,
       listingId: "",
     },
   });
@@ -242,11 +244,29 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                     <Input
                       {...field}
                       type="number"
+                      inputMode="decimal"
                       step="0.01"
                       min="0"
                       placeholder="0.00"
-                      value={field.value}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      // Allow clearing: undefined/null -> '' so backspace removes all content without re-inserting 0
+                      // Convert to string for the input value to avoid number/string comparison issues
+                      value={field.value === undefined || field.value === null ? '' : String(field.value)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === '') {
+                          field.onChange('');
+                        } else {
+                          // Keep raw string; z.coerce.number will parse/validate on submit
+                          field.onChange(v);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const v = e.target.value;
+                        if (v !== '') {
+                          const num = Number(v);
+                          if (!isNaN(num)) field.onChange(Number(num.toFixed(2)));
+                        }
+                      }}
                       disabled={submitting}
                       data-testid="input-price"
                     />
