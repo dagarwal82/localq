@@ -22,6 +22,8 @@ interface MessageThreadProps {
   conversationId?: string;
   recipientId?: string;
   productId?: string;
+  recipientName?: string;
+  productName?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -30,6 +32,8 @@ export function MessageThread({
   conversationId,
   recipientId,
   productId,
+  recipientName,
+  productName,
   open,
   onOpenChange,
 }: MessageThreadProps) {
@@ -54,7 +58,7 @@ export function MessageThread({
   });
 
   // Fetch messages
-  const { data: messages = [], isLoading } = useQuery<Message[]>({
+  const { data: messages = [], isLoading, refetch } = useQuery<Message[]>({
     queryKey: ['/api/messages', conversationId, recipientId, productId],
     queryFn: async () => {
       if (conversationId) {
@@ -67,6 +71,8 @@ export function MessageThread({
       return [];
     },
     enabled: open && (!!conversationId || !!recipientId),
+    refetchInterval: false,
+    refetchOnWindowFocus: true,
   });
 
   // Merge fetched messages with local optimistic updates
@@ -92,9 +98,21 @@ export function MessageThread({
   const { isConnected } = useWebSocket(open, {
     conversationId: actualConversationId,
     onMessage: (message) => {
-      if (message.conversationId === actualConversationId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/messages', actualConversationId] });
-        scrollToBottom();
+      console.log('WebSocket message received:', message);
+      
+      // Update conversationId if we don't have one yet
+      if (!actualConversationId && message.conversationId) {
+        setActualConversationId(message.conversationId);
+      }
+      
+      if (message.conversationId === actualConversationId || 
+          !actualConversationId || // Allow if we don't have conversationId yet
+          (message.recipientId === currentUser?.id || message.senderId === currentUser?.id)) {
+        // Invalidate messages query to refetch
+        queryClient.invalidateQueries({ queryKey: ['/api/messages'] });
+        // Also invalidate conversations to update unread counts
+        queryClient.invalidateQueries({ queryKey: ['/api/conversations'] });
+        setTimeout(() => scrollToBottom(), 100); // Small delay to ensure DOM update
       }
     },
   });
@@ -218,16 +236,16 @@ export function MessageThread({
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
                 <div className="bg-primary/10 text-primary font-semibold flex items-center justify-center w-full h-full">
-                  {conversation?.participantName?.charAt(0).toUpperCase() || '?'}
+                  {(conversation?.participantName || recipientName || 'M')?.charAt(0).toUpperCase()}
                 </div>
               </Avatar>
               <div>
                 <DialogTitle className="text-base">
-                  {conversation?.participantName || 'User'}
+                  {conversation?.participantName || recipientName || 'Messaging'}
                 </DialogTitle>
-                {conversation?.productTitle && (
+                {(conversation?.productTitle || productName) && (
                   <p className="text-xs text-muted-foreground">
-                    Re: {conversation.productTitle}
+                    Re: {conversation?.productTitle || productName}
                   </p>
                 )}
               </div>

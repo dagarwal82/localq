@@ -90,6 +90,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [showMessageThread, setShowMessageThread] = useState(false);
   const [messageRecipientId, setMessageRecipientId] = useState<string | undefined>();
+  const [messageRecipientName, setMessageRecipientName] = useState<string | undefined>();
 
   // Get my current interest if it exists (prefer stored id, fallback to email match)
   const storedInterestId = (typeof window !== 'undefined') ? sessionStorage.getItem(`my_interest_${product.id}`) || undefined : undefined;
@@ -206,6 +207,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       const user = await apiRequest("GET", "/api/auth/me");
       if (!user || !user.email) throw new Error("Not authenticated");
       setMessageRecipientId(product.ownerId);
+      setMessageRecipientName('Seller'); // We could get seller name from product if available
       setShowMessageThread(true);
     } catch {
       // Show inline auth dialog
@@ -218,7 +220,10 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
     try {
       const user = await apiRequest("GET", "/api/auth/me");
       if (!user || !user.email) throw new Error("Not authenticated");
+      // Find the buyer to get their name
+      const buyer = buyers.find(b => b.buyerId === buyerId);
       setMessageRecipientId(buyerId);
+      setMessageRecipientName(buyer?.buyerName || 'Buyer');
       setShowMessageThread(true);
     } catch {
       setAuthMode('login');
@@ -970,6 +975,8 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       <MessageThread
         recipientId={messageRecipientId}
         productId={product.id}
+        recipientName={messageRecipientName}
+        productName={product.title}
         open={showMessageThread}
         onOpenChange={setShowMessageThread}
       />
