@@ -19,7 +19,7 @@ declare global {
 }
 
 // Raw env may include accidental wrapping quotes in .env; normalize.
-const GA_ID_RAW = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+const GA_ID_RAW = import.meta.env.VITE_GA_MEASUREMENT_ID as string | 'G-83C9CYLTR7';
 // Strip single or double quotes if user included them in .env (common mistake)
 const GA_ID = GA_ID_RAW?.replace(/^['"]|['"]$/g, '') || undefined;
 const DISABLED = (import.meta.env.VITE_DISABLE_ANALYTICS as string | undefined)?.toLowerCase() === 'true';
