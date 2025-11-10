@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { AuthForm } from "./AuthForm";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 
@@ -65,6 +66,8 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const [submitting, setSubmitting] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [justWithdrew, setJustWithdrew] = useState(false); // suppress edit/withdraw buttons immediately after withdrawal until refetch
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
 
   // Get my current interest if it exists (prefer stored id, fallback to email match)
   const storedInterestId = (typeof window !== 'undefined') ? sessionStorage.getItem(`my_interest_${product.id}`) || undefined : undefined;
@@ -156,7 +159,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       if (!me || !me.email) throw new Error("Not authenticated");
       setInterestOpen(true);
     } catch {
-      // Redirect to landing to auth then return
+      // Show inline signup dialog instead of redirecting
       // Preserve public listing key for post-auth auto-grant
       if (listing) {
         const storageKey = `listing_key_${listing.id}`;
@@ -169,11 +172,9 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
         const existing = sessionStorage.getItem("postAuthRedirect");
         if (!existing) sessionStorage.setItem("postAuthRedirect", "/home");
       }
-      toast({
-        title: "Please sign up or log in",
-        description: "You need an account to join the interest queue",
-      });
-      window.location.href = "/";
+      // Open inline auth dialog instead of redirecting
+      setAuthMode('signup');
+      setShowAuthDialog(true);
     }
   };
 
@@ -803,7 +804,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                   <Switch id="hideOffer" checked={hideOffer} onCheckedChange={setHideOffer} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Hidden offers are visible to the owner only and may be de‑prioritized.
+                  Hidden offers are visible to the owner only.
                 </p>
               </div>
               <div className="mt-2 space-y-1">
@@ -842,6 +843,51 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                 {submitting ? (editingInterest ? "Updating..." : "Submitting...") : (editingInterest ? "Update" : "Submit")}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Auth Dialog for unauthenticated buyers */}
+      <Dialog open={showAuthDialog} onOpenChange={setShowAuthDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Join the interest queue</DialogTitle>
+            <p className="text-sm text-muted-foreground text-center pt-2">
+              Create an account to show your interest in this item
+            </p>
+          </DialogHeader>
+          <AuthForm 
+            mode={authMode} 
+            onSuccess={async () => {
+              // After signup/login, check if user is actually authenticated
+              try {
+                const user = await apiRequest("GET", "/api/auth/me");
+                if (user && user.email) {
+                  // User is logged in (OAuth or email verified)
+                  setShowAuthDialog(false);
+                  queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+                  setTimeout(() => {
+                    setInterestOpen(true);
+                  }, 300);
+                } else {
+                  // Should not happen, but handle gracefully
+                  setShowAuthDialog(false);
+                }
+              } catch (e) {
+                // Not authenticated - likely email not verified
+                // The AuthForm already shows the verification message for signup
+                // For login with unverified email, the error is already handled
+                setShowAuthDialog(false);
+              }
+            }}
+          />
+          <div className="text-center pb-2">
+            <button
+              onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
+              className="text-xs text-muted-foreground hover:text-foreground underline"
+            >
+              {authMode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Log in'}
+            </button>
           </div>
         </DialogContent>
       </Dialog>
