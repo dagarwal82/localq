@@ -9,6 +9,7 @@ interface User {
   firstName: string | null;
   lastName: string | null;
   role: string;
+  timezone?: string | null;
 }
 
 interface AuthResponse {
@@ -28,13 +29,15 @@ export const signup = async (
   email: string,
   password: string,
   firstName?: string,
-  lastName?: string
+  lastName?: string,
+  timezone?: string
 ): Promise<AuthResponse> => {
   const response = await axios.post(`${API_URL}/api/public/auth/signup`, {
     email,
     password,
     firstName,
     lastName,
+    timezone: timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   }, { withCredentials: true }); // send cookies
   return response.data;
 };
@@ -50,6 +53,10 @@ export const getCurrentUser = async (): Promise<User | null> => {
   } catch {
     return null;
   }
+};
+
+export const updateTimezone = async (timezone: string): Promise<void> => {
+  await axios.post(`${API_URL}/api/account/timezone`, { timezone }, { withCredentials: true });
 };
 
 // No getToken needed, authentication handled by httpOnly cookie

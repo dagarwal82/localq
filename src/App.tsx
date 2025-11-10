@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
+import { updateTimezone } from "./lib/auth";
 // Global styles are imported via main.tsx; ensure not duplicated.
 import { AuthProvider } from "./components/AuthProvider";
 import { Toaster } from "./components/ui/toaster";
@@ -54,6 +55,12 @@ function App() {
       // Force a refetch of auth state
       queryClient.resetQueries({ queryKey: ['auth-user'] });
 
+      // After OAuth, set timezone once
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        updateTimezone(tz).catch(() => {/* non-blocking */});
+      } catch {/* ignore */}
+
       // If we have a stored listing key from pre-auth navigation, auto-grant access now
       try {
         const pathMatch = window.location.pathname.match(/^\/listing\/(.+)$/);
@@ -63,7 +70,7 @@ function App() {
           const savedKey = sessionStorage.getItem(storageKey);
           if (savedKey) {
             // Fire-and-forget grant; ListingPage will also handle its own flow
-            fetch(`/api/listings/${listingId}/grant-access`, {
+            fetch(`${(import.meta.env.VITE_API_URL || 'https://api.spacevox.com').replace(/\/$/, '')}/api/listings/${listingId}/grant-access`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',

@@ -241,8 +241,15 @@ export default function Home() {
             <GarageSaleLogo size={28} className="text-primary flex-shrink-0" />
             <h1 className="text-lg font-semibold tracking-tight truncate">SpaceVox</h1>
           </a>
-          {/* Mobile primary actions */}
-          <div className="flex items-center gap-1">
+          {/* Actions + user context */}
+          <div className="flex items-center gap-2 min-w-0">
+            {user?.email && (
+              <span
+                className="hidden sm:inline text-xs text-muted-foreground truncate max-w-[180px]"
+                title={user.email}
+                data-testid="text-user-email"
+              >{user.email}</span>
+            )}
             {/* Always show quick add */}
             <AddProductDialog onAddProduct={() => {
               queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -301,7 +308,7 @@ export default function Home() {
                       placeholder="123 Main St, City"
                       data-testid="input-new-listing-address"
                     />
-                    <p className="text-[11px] text-muted-foreground mt-1">This address is not public. You can reveal it per buyer on approval.</p>
+                    <p className="text-[11px] text-muted-foreground mt-1">Your pickup address stays hidden unless you explicitly share it with an approved buyer.</p>
                   </div>
                   <Button
                     onClick={() => createListingMutation.mutate()}
@@ -320,7 +327,7 @@ export default function Home() {
                 <Package className="w-14 h-14 mx-auto mb-4 text-muted-foreground" />
                 <h3 className="text-lg font-semibold mb-2">No items yet</h3>
                 <p className="text-sm text-muted-foreground mb-4">Add your first item to this account’s listings. Each item will belong to one listing.</p>
-                <p className="text-xs text-muted-foreground">Use the + button bottom-right to add an item.</p>
+                <p className="text-xs text-muted-foreground">Use the Add Item button at the top to add an item.</p>
               </div>
             )}
 
@@ -418,6 +425,10 @@ function DetailsMenu() {
       <div className="absolute right-2 mt-2 w-56 rounded-md border border-border bg-popover p-2 shadow-md flex flex-col gap-1 z-50">
         <ListingManagerDialog triggerClassName="justify-start w-full" />
   {/* <AccountAdminsDialog /> Hidden temporarily */}
+        {/* Timezone settings */}
+        <div className="px-1">
+          <TimezoneMenuItem />
+        </div>
         <Button
           variant="destructive"
           size="sm"
@@ -449,4 +460,10 @@ function DetailsMenu() {
       </div>
     </details>
   );
+}
+
+import { TimezoneDialog } from "../components/TimezoneDialog";
+
+function TimezoneMenuItem() {
+  return <TimezoneDialog />;
 }

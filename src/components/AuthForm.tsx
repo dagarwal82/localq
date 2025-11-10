@@ -19,6 +19,13 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
   const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const detectedTimezone = (() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    } catch {
+      return 'UTC';
+    }
+  })();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +43,7 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
         body: JSON.stringify({
           email,
           password,
-          ...(mode === 'signup' ? { firstName, lastName } : {}),
+          ...(mode === 'signup' ? { firstName, lastName, timezone: detectedTimezone } : {}),
         }),
         credentials: 'include', // allow httpOnly cookie to be set
       });

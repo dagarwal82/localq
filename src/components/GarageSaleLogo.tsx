@@ -14,7 +14,7 @@ export function GarageSaleLogo({ className = "", size = 40 }: GarageSaleLogoProp
   if (useImage) {
     return (
       <img
-        src="/spacevox.jpg"
+        src="/spacevox-garage.svg"
         width={size}
         height={size}
         alt="SpaceVox logo"

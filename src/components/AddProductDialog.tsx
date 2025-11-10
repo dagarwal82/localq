@@ -58,8 +58,17 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
   const handleFilesAdded = (files: File[]) => {
     if (!files || files.length === 0) return;
     setImageFiles(current => {
-      const next = [...current, ...files];
-      return next.slice(0, MAX_IMAGES);
+      const available = MAX_IMAGES - current.length;
+      const accepted = files.slice(0, Math.max(available, 0));
+      const next = [...current, ...accepted];
+      if (files.length > accepted.length) {
+        toast({
+          variant: "destructive",
+          title: `Image limit reached`,
+          description: `Only ${MAX_IMAGES} images allowed per item. Extra ${files.length - accepted.length} file(s) ignored.`,
+        });
+      }
+      return next;
     });
   };
 
@@ -149,7 +158,7 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
               )}
             />
             <div className="space-y-2 opacity-100">
-              <Label>Product Images <span className="text-xs text-muted-foreground">(up to {MAX_IMAGES})</span></Label>
+              <Label>Product Images <span className="text-xs text-muted-foreground">( {imageFiles.length} / {MAX_IMAGES} )</span></Label>
               {imageFiles.length > 0 && (
                 <div className="grid grid-cols-2 gap-2">
                   {imageFiles.map((file, index) => (
@@ -176,15 +185,17 @@ export function AddProductDialog({ onAddProduct }: AddProductDialogProps) {
               >
                 Drag & drop images here or select below
               </div>
-              {imageFiles.length < MAX_IMAGES && (
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={e => handleFilesAdded(Array.from(e.target.files || []))}
-                  className="w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                  data-testid="input-file"
-                />
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={e => handleFilesAdded(Array.from(e.target.files || []))}
+                disabled={imageFiles.length >= MAX_IMAGES}
+                className="w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50"
+                data-testid="input-file"
+              />
+              {imageFiles.length >= MAX_IMAGES && (
+                <p className="text-xs text-muted-foreground">Maximum of {MAX_IMAGES} images reached.</p>
               )}
             </div>
 
