@@ -9,6 +9,7 @@ import { initAnalytics, trackPage } from "./lib/analytics";
 import { AuthProvider } from "./components/AuthProvider";
 import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
+import PWAControls from "./components/PWAControls";
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import Admin from "./pages/Admin";
@@ -108,7 +109,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
+  <Toaster />
+  <PWAControls />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>

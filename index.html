@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>SpaceVox - Local Marketplace Queue</title>
@@ -16,6 +19,7 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Service worker registration moved into React entry (main.tsx) for update & install prompt logic -->
     <footer class="mt-16 border-t border-border bg-background/80 backdrop-blur-sm text-xs text-muted-foreground">
       <div class="max-w-4xl mx-auto px-4 py-6 flex flex-col gap-3">
         <nav class="flex flex-wrap gap-4" aria-label="Legal and contact links">

@@ -1,0 +1,83 @@
+{
+  "id": "/",
+  "name": "SpaceVox",
+  "short_name": "SpaceVox",
+  "description": "Local marketplace queue management",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0f0f11",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "lang": "en-US",
+  "categories": ["shopping", "productivity"],
+  "icons": [
+    {
+      "src": "spacevox-garage.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/mobile-540x720.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "label": "Browse product queue on mobile"
+    },
+    {
+      "src": "screenshots/desktop-1280x800.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Admin dashboard showing live queue"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Queue",
+      "short_name": "Queue",
+      "description": "Open your queue",
+      "url": "./?view=queue",
+      "icons": [
+        { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
+    },
+    {
+      "name": "Add Product",
+      "short_name": "Add",
+      "description": "Quick add a product",
+      "url": "./?action=add-product",
+      "icons": [
+        { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}
