@@ -28,8 +28,7 @@ interface UserProfile {
   firstName: string | null;
   lastName: string | null;
   role: string;
-  googleId: string | null;
-  facebookId: string | null;
+  facebookVerified: string | null;
   emailVerified: boolean;
 }
 
@@ -118,8 +117,7 @@ export default function Settings() {
     return null;
   }
 
-  const hasGoogleLinked = !!user.googleId;
-  const hasFacebookLinked = !!user.facebookId;
+  const hasFacebookLinked = !!user.facebookVerified;
   const hasPassword = !!user.email; // Assuming password users have email
 
   return (
@@ -185,65 +183,6 @@ export default function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Google Account */}
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <FcGoogle size={24} />
-                <div>
-                  <div className="font-medium">Google</div>
-                  <div className="text-sm text-muted-foreground">
-                    {hasGoogleLinked ? 'Connected' : 'Not connected'}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {hasGoogleLinked && (
-                  <Badge variant="secondary" className="gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Verified
-                  </Badge>
-                )}
-                {hasGoogleLinked ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={unlinkGoogleMutation.isPending || (!hasPassword && !hasFacebookLinked)}
-                      >
-                        <Unlink className="w-4 h-4 mr-2" />
-                        Unlink
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Unlink Google Account?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to unlink your Google account? You'll no longer be able to sign in with Google.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => unlinkGoogleMutation.mutate()}
-                        >
-                          Unlink
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLinkGoogle}
-                  >
-                    <Link2 className="w-4 h-4 mr-2" />
-                    Link Account
-                  </Button>
-                )}
-              </div>
-            </div>
 
             {/* Facebook Account */}
             <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -269,7 +208,7 @@ export default function Settings() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={unlinkFacebookMutation.isPending || (!hasPassword && !hasGoogleLinked)}
+                        disabled={unlinkFacebookMutation.isPending || (!hasPassword)}
                       >
                         <Unlink className="w-4 h-4 mr-2" />
                         Unlink
@@ -305,7 +244,7 @@ export default function Settings() {
               </div>
             </div>
 
-            {(!hasPassword && !hasGoogleLinked) || (!hasPassword && !hasFacebookLinked) ? (
+            {(!hasPassword) || (!hasPassword && !hasFacebookLinked) ? (
               <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
                 ⚠️ You must have at least one sign-in method (password or linked account). Keep at least one option connected.
               </div>

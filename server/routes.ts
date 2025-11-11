@@ -96,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const confirmationCode = `DEL_${facebookUserId}_${Date.now()}`;
 
       // TODO: In a production app, you would:
-      // 1. Find the user by facebookId
+      // 1. Find the user by facebookVerified
       // 2. Queue a background job to delete their data
       // 3. Store the confirmation code for tracking
       // 4. Send confirmation email to the user
