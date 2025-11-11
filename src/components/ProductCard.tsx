@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/ui/confirm-button";
-import { Package, Clock, DollarSign, Users, ChevronDown, ChevronUp, CalendarDays, MapPin, MessageSquare } from "lucide-react";
+import { Package, Clock, DollarSign, Users, ChevronDown, ChevronUp, CalendarDays, MapPin, MessageSquare, Pencil } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import { cn } from "@/lib/utils";
 import type { Product, BuyerInterest } from "@/pages/Home";
@@ -12,6 +12,7 @@ import type { Listing } from "@/types/listing";
 import { BuyerQueueItem } from "./BuyerQueueItem";
 // Removed AddBuyerDialog: buyers now self-register via interest dialog
 import { ShareProductDialog } from "./ShareProductDialog";
+import { EditProductDialog } from "./EditProductDialog";
 import { MessageThread } from "./MessageThread";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -29,9 +30,10 @@ interface ProductCardProps {
   isOwner?: boolean; // True when viewing own products (admin view)
   onMarkSold: (productId: string) => void;
   onRemove: (productId: string) => void;
+  onUpdate?: () => void; // Callback after product is edited
 }
 
-export function ProductCard({ product, listing, isOwner = false, onMarkSold, onRemove }: ProductCardProps) {
+export function ProductCard({ product, listing, isOwner = false, onMarkSold, onRemove, onUpdate }: ProductCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [carouselApi, setCarouselApi] = useState<any>(null);
@@ -520,7 +522,14 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       </div>
 
       <CardContent className="p-4 space-y-2">
-        <h3 className="text-lg font-semibold text-foreground" data-testid={`text-title-${product.id}`}>{product.title}</h3>
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-foreground" data-testid={`text-title-${product.id}`}>{product.title}</h3>
+          {isOwner && listing && (
+            <Badge variant="outline" className="text-xs font-normal" data-testid={`badge-listing-${product.id}`}>
+              {listing.name}
+            </Badge>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground line-clamp-2" data-testid={`text-description-${product.id}`}>{product.description}</p>
         
         <div className="flex items-center gap-2 text-sm">
@@ -732,6 +741,18 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
               Add item to a listing to enable sharing
             </div>
           )}
+          <div className="flex gap-2 w-full">
+            <EditProductDialog 
+              product={product} 
+              onUpdate={() => onUpdate?.()} 
+              trigger={
+                <Button variant="outline" size="sm" className="flex-1">
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              }
+            />
+          </div>
           <div className="flex gap-2 w-full">
             <ConfirmButton
               variant="default"

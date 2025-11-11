@@ -216,7 +216,7 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
                     <span className="inline-flex items-center gap-1">
                       <span className="font-medium text-foreground">{h.priorStatus}</span>
                       <span>→</span>
-                      <span className="font-medium text-foreground">{h.newStatus}</span>
+                      <span className="font-medium text-foreground">{h.newStatus} ({(() => { try { return format(new Date(h.createdAt), "MMM d, h:mm a"); } catch { return h.createdAt; } })()})</span>
                     </span>
                   </div>
                   <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">

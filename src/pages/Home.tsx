@@ -6,7 +6,7 @@ import { AddProductDialog } from "../components/AddProductDialog";
 import { RecentlyViewed } from "../components/RecentlyViewedListings";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Package, RefreshCw, LogOut, MoreHorizontal, ChevronDown, MessageSquare } from "lucide-react";
+import { Package, RefreshCw, LogOut, MoreHorizontal, ChevronDown, MessageSquare, Settings } from "lucide-react";
 import { performLogout } from "../lib/authUtils";
 import { useToast } from "../hooks/use-toast";
 import ListingManagerDialog from "../components/ListingManagerDialog";
@@ -362,6 +362,10 @@ export default function Home() {
                     isOwner={true}
                     onMarkSold={(id) => markSoldMutation.mutate(id)}
                     onRemove={(id) => removeMutation.mutate(id)}
+                    onUpdate={() => {
+                      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/listings", "mine"] });
+                    }}
                   />
                 );
               })
@@ -445,6 +449,14 @@ function DetailsMenu() {
           onClick={() => setLocation("/messages")}
         >
           <MessageSquare className="w-4 h-4 mr-2" /> Messages
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="justify-start w-full"
+          onClick={() => setLocation("/settings")}
+        >
+          <Settings className="w-4 h-4 mr-2" /> Settings
         </Button>
   {/* <AccountAdminsDialog /> Hidden temporarily */}
         {/* Timezone settings - hidden for now */}

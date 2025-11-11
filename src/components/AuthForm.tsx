@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { FcGoogle } from "react-icons/fc";
+import { FaFacebook } from "react-icons/fa";
 import { ForgotPasswordDialog } from "./ForgotPasswordDialog";
 
 interface AuthFormProps {
@@ -104,6 +105,11 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
     window.location.href = `${apiRoot}/oauth2/authorization/google`;
   };
 
+  const handleFacebookLogin = () => {
+    const apiRoot = (import.meta.env.VITE_API_URL || 'https://api.spacevox.com').replace(/\/$/, '');
+    window.location.href = `${apiRoot}/oauth2/authorization/facebook`;
+  };
+
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
@@ -192,6 +198,16 @@ export function AuthForm({ mode, onSuccess }: AuthFormProps) {
           >
             <FcGoogle size={18} />
             <span>Continue with Google</span>
+          </Button>
+          <Button
+            type="button" 
+            variant="outline"
+            className="w-full gap-2 border-2 shadow-sm hover:shadow transition-all"
+            aria-label="Continue with Facebook"
+            onClick={handleFacebookLogin}
+          >
+            <FaFacebook size={18} className="text-[#1877F2]" />
+            <span>Continue with Facebook</span>
           </Button>
         </CardContent>
       </form>

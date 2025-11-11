@@ -1,20 +1,20 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "./ui/form";
-import { Plus, Upload, X } from "lucide-react";
-import { ObjectUploader } from "./ObjectUploader";
+import { X, Pencil } from "lucide-react";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
-// Local product form schema
 import { z } from "zod";
 import { useQuery } from "@tanstack/react-query";
 import type { Listing } from "../types/listing";
+import type { Product, ProductImage } from "@/pages/Home";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-// Allow the price input to be cleared and typed freely; coerce to number for validation/submit.
 const productFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
@@ -23,20 +23,21 @@ const productFormSchema = z.object({
 });
 
 type ProductFormValues = z.infer<typeof productFormSchema>;
-import { useForm } from "react-hook-form";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-
-interface AddProductDialogProps {
-  onAddProduct: (product?: any) => void;
-  triggerButtonOverride?: React.ReactNode;
+interface EditProductDialogProps {
+  product: Product;
+  onUpdate: () => void;
+  trigger?: React.ReactNode;
 }
 
-export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddProductDialogProps) {
+export function EditProductDialog({ product, onUpdate, trigger }: EditProductDialogProps) {
   const [open, setOpen] = useState(false);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<ProductImage[]>(product.images || []);
+  const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
   const MAX_IMAGES = 3;
   const { toast } = useToast();
+
   const { data: listings = [] } = useQuery<Listing[]>({
     queryKey: ["/api/listings", "mine"],
     queryFn: async () => apiRequest("GET", "/api/listings/account/me"),
@@ -46,22 +47,42 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
-      title: "",
-      description: "",
-      // Start empty so user doesn't fight a pre-filled 0
-      price: undefined as any,
-      listingId: "",
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      listingId: product.listingId || "",
     },
   });
 
-  const handleRemoveImage = (index: number) => {
+  // Reset form when product changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        title: product.title,
+        description: product.description,
+        price: product.price,
+        listingId: product.listingId || "",
+      });
+      setExistingImages(product.images || []);
+      setImageFiles([]);
+      setDeletedImageIds([]);
+    }
+  }, [open, product, form]);
+
+  const handleRemoveExistingImage = (imageId: string) => {
+    setExistingImages(current => current.filter(img => img.id !== imageId));
+    setDeletedImageIds(current => [...current, imageId]);
+  };
+
+  const handleRemoveNewImage = (index: number) => {
     setImageFiles(current => current.filter((_, i) => i !== index));
   };
 
   const handleFilesAdded = (files: File[]) => {
     if (!files || files.length === 0) return;
     setImageFiles(current => {
-      const available = MAX_IMAGES - current.length;
+      const totalImages = existingImages.length + current.length;
+      const available = MAX_IMAGES - totalImages;
       const accepted = files.slice(0, Math.max(available, 0));
       const next = [...current, ...accepted];
       if (files.length > accepted.length) {
@@ -78,7 +99,8 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (values: ProductFormValues) => {
-    if (imageFiles.length === 0) {
+    const totalImages = existingImages.length + imageFiles.length;
+    if (totalImages === 0) {
       toast({
         variant: "destructive",
         title: "Missing images",
@@ -89,55 +111,69 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
 
     try {
       setSubmitting(true);
-      // Create product first
-      const productRes = await apiRequest("POST", "/api/products", {
+
+      // Update product details
+      await apiRequest("PATCH", `/api/products/${product.id}`, {
         title: values.title,
         description: values.description,
-        // Backend expects decimal price (e.g., 25.50)
         price: Math.round((values.price || 0) * 100) / 100,
         listingId: values.listingId,
       });
-      const productId = productRes.id;
 
-      // Upload images for product
-      const formData = new FormData();
-      imageFiles.forEach((file) => formData.append("files", file));
-      await apiRequest("POST", `/api/products/${productId}/images`, formData);
+      // Delete removed images
+      for (const imageId of deletedImageIds) {
+        try {
+          await apiRequest("DELETE", `/api/products/${product.id}/images/${imageId}`, {});
+        } catch (error) {
+          console.error("Failed to delete image:", imageId, error);
+        }
+      }
+
+      // Upload new images if any
+      if (imageFiles.length > 0) {
+        const formData = new FormData();
+        imageFiles.forEach((file) => formData.append("files", file));
+        await apiRequest("POST", `/api/products/${product.id}/images`, formData);
+      }
 
       toast({
-        title: "Product added",
-        description: "Your listing has been created successfully",
+        title: "Product updated",
+        description: "Your changes have been saved successfully",
       });
-  onAddProduct(productRes);
-      form.reset();
-      setImageFiles([]);
+      
+      onUpdate();
       setOpen(false);
     } catch (error) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to create listing",
+        description: "Failed to update product",
       });
-    }
-    finally {
+    } finally {
       setSubmitting(false);
     }
   };
 
+  const totalImageCount = existingImages.length + imageFiles.length;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {triggerButtonOverride ? (
-          triggerButtonOverride
-        ) : (
-          <Button size="sm" variant="default" className="h-9" data-testid="button-add-product">
-            <Plus className="w-4 h-4 mr-2" /> Add Item
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger ? (
+        <div onClick={() => setOpen(true)}>{trigger}</div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          data-testid={`button-edit-product-${product.id}`}
+        >
+          <Pencil className="w-4 h-4 mr-2" />
+          Edit
+        </Button>
+      )}
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Item</DialogTitle>
+          <DialogTitle>Edit Product</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -152,7 +188,7 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                       className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm"
                       value={field.value}
                       onChange={(e) => field.onChange(e.target.value)}
-                      data-testid="select-listing"
+                      data-testid="select-listing-edit"
                     >
                       <option value="">Select a listing</option>
                       {listings.map((lst) => (
@@ -164,34 +200,71 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                 </FormItem>
               )}
             />
-            <div className="space-y-2 opacity-100">
+
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Product Images <span className="text-xs text-muted-foreground">( {imageFiles.length} / {MAX_IMAGES} )</span></Label>
-                {imageFiles.length > 0 && (
+                <Label>Product Images <span className="text-xs text-muted-foreground">( {totalImageCount} / {MAX_IMAGES} )</span></Label>
+                {(existingImages.length > 0 || imageFiles.length > 0) && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setImageFiles([])}
+                    onClick={() => {
+                      setDeletedImageIds(existingImages.map(img => img.id));
+                      setExistingImages([]);
+                      setImageFiles([]);
+                    }}
                     className="h-7 text-xs"
-                    data-testid="button-clear-all-images"
+                    data-testid="button-clear-all-images-edit"
                   >
                     Clear All
                   </Button>
                 )}
               </div>
-              {imageFiles.length > 0 && (
+              
+              {(existingImages.length > 0 || imageFiles.length > 0) && (
                 <div className="grid grid-cols-2 gap-2">
-                  {imageFiles.map((file, index) => (
-                    <div key={index} className="relative aspect-square rounded-md overflow-hidden bg-muted">
-                      <img src={URL.createObjectURL(file)} alt={`Product ${index + 1}`} className="w-full h-full object-cover" data-testid={`img-product-preview-${index}`} />
+                  {/* Existing images */}
+                  {existingImages.map((image) => (
+                    <div key={image.id} className="relative aspect-square rounded-md overflow-hidden bg-muted">
+                      <img 
+                        src={image.url} 
+                        alt="Product" 
+                        className="w-full h-full object-cover" 
+                        data-testid={`img-existing-${image.id}`}
+                      />
                       <Button
                         type="button"
                         variant="destructive"
                         size="icon"
                         className="absolute top-1 right-1 h-6 w-6"
-                        onClick={() => handleRemoveImage(index)}
-                        data-testid={`button-remove-image-${index}`}
+                        onClick={() => handleRemoveExistingImage(image.id)}
+                        data-testid={`button-remove-existing-${image.id}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {/* New images */}
+                  {imageFiles.map((file, index) => (
+                    <div key={`new-${index}`} className="relative aspect-square rounded-md overflow-hidden bg-muted border-2 border-primary">
+                      <img 
+                        src={URL.createObjectURL(file)} 
+                        alt={`New ${index + 1}`} 
+                        className="w-full h-full object-cover" 
+                        data-testid={`img-new-preview-${index}`}
+                      />
+                      <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-xs px-1 rounded">
+                        NEW
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => handleRemoveNewImage(index)}
+                        data-testid={`button-remove-new-${index}`}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -199,27 +272,34 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                   ))}
                 </div>
               )}
+              
               <div
                 className="mt-2 rounded-md border border-dashed border-border p-3 text-center text-sm text-muted-foreground"
                 onDragOver={(e) => { e.preventDefault(); }}
-                onDrop={(e) => { e.preventDefault(); handleFilesAdded(Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'))); }}
+                onDrop={(e) => { 
+                  e.preventDefault(); 
+                  handleFilesAdded(Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'))); 
+                }}
               >
                 Drag & drop images here or select below
               </div>
+              
               <input
                 type="file"
                 accept="image/*"
                 multiple
                 onChange={e => {
                   handleFilesAdded(Array.from(e.target.files || []));
-                  // Reset the input value so the same files can be selected again
                   e.target.value = '';
                 }}
                 className="w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                data-testid="input-file"
+                data-testid="input-file-edit"
               />
-              {imageFiles.length >= MAX_IMAGES && (
-                <p className="text-xs text-amber-600 dark:text-amber-500">Maximum of {MAX_IMAGES} images reached. Remove some to add different ones.</p>
+              
+              {totalImageCount >= MAX_IMAGES && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  Maximum of {MAX_IMAGES} images reached. Remove some to add different ones.
+                </p>
               )}
             </div>
 
@@ -230,7 +310,7 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                 <FormItem>
                   <FormLabel>Product Title</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., Vintage Camera" data-testid="input-title" disabled={submitting} />
+                    <Input {...field} placeholder="e.g., Vintage Camera" data-testid="input-title-edit" disabled={submitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -244,7 +324,7 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Describe the item..." rows={3} data-testid="input-description" disabled={submitting} />
+                    <Textarea {...field} placeholder="Describe the item..." rows={3} data-testid="input-description-edit" disabled={submitting} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -265,15 +345,12 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                       step="0.01"
                       min="0"
                       placeholder="0.00"
-                      // Allow clearing: undefined/null -> '' so backspace removes all content without re-inserting 0
-                      // Convert to string for the input value to avoid number/string comparison issues
                       value={field.value === undefined || field.value === null ? '' : String(field.value)}
                       onChange={(e) => {
                         const v = e.target.value;
                         if (v === '') {
                           field.onChange('');
                         } else {
-                          // Keep raw string; z.coerce.number will parse/validate on submit
                           field.onChange(v);
                         }
                       }}
@@ -285,7 +362,7 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
                         }
                       }}
                       disabled={submitting}
-                      data-testid="input-price"
+                      data-testid="input-price-edit"
                     />
                   </FormControl>
                   <FormMessage />
@@ -294,11 +371,22 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
             />
 
             <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1" data-testid="button-cancel-product">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setOpen(false)} 
+                className="flex-1" 
+                data-testid="button-cancel-edit"
+              >
                 Cancel
               </Button>
-              <Button type="submit" className="flex-1" data-testid="button-submit-product" disabled={submitting}>
-                {submitting ? "Adding..." : "Add Item"}
+              <Button 
+                type="submit" 
+                className="flex-1" 
+                data-testid="button-submit-edit" 
+                disabled={submitting}
+              >
+                {submitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </form>
