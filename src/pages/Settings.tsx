@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest, queryClient } from '../lib/queryClient';
 import { useLocation, Link } from 'wouter';
@@ -7,9 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { useToast } from '../hooks/use-toast';
-import { ArrowLeft, CheckCircle2, Link2, Unlink, RefreshCw, Info } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Link2, Unlink, RefreshCw, Info, BadgeCheck } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaFacebook } from 'react-icons/fa';
+import { AddFacebookProfileDialog } from '../components/AddFacebookProfileDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,12 +30,14 @@ interface UserProfile {
   lastName: string | null;
   role: string;
   facebookVerified: string | null;
+  fbProfileUrl: string | null;
   emailVerified: boolean;
 }
 
 export default function Settings() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [showFacebookProfileDialog, setShowFacebookProfileDialog] = useState(false);
 
   // Fetch current user profile
   const { data: user, isLoading } = useQuery<UserProfile>({
@@ -48,6 +51,18 @@ export default function Settings() {
       }
     },
   });
+
+  // Check if returning from Facebook OAuth
+  useEffect(() => {
+    const shouldReturn = sessionStorage.getItem('returnToFacebookVerification');
+    if (shouldReturn === 'true') {
+      sessionStorage.removeItem('returnToFacebookVerification');
+      // Small delay to ensure user data is refreshed
+      setTimeout(() => {
+        setShowFacebookProfileDialog(true);
+      }, 500);
+    }
+  }, []);
 
   // Unlink Google mutation
   const unlinkGoogleMutation = useMutation({
@@ -158,8 +173,11 @@ export default function Settings() {
             {(user.firstName || user.lastName) && (
               <div>
                 <div className="text-sm font-medium text-muted-foreground">Name</div>
-                <div className="text-base mt-1">
-                  {[user.firstName, user.lastName].filter(Boolean).join(' ')}
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-base">
+                    {[user.firstName, user.lastName].filter(Boolean).join(' ')}
+                  </span>
+                 
                 </div>
               </div>
             )}
@@ -174,81 +192,108 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Connected Accounts Card */}
+        {/* Facebook Verification */}
         <Card>
           <CardHeader>
-            <CardTitle>Connected Accounts</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <BadgeCheck className="w-5 h-5 text-[#1877F2]" />
+              Facebook Verification
+            </CardTitle>
             <CardDescription>
-              Link your social accounts to sign in quickly and get verified badges
+              Complete both steps to get verified: link your Facebook account and add your public profile URL
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-
-            {/* Facebook Account */}
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="flex items-center gap-3">
-                <FaFacebook size={24} className="text-[#1877F2]" />
-                <div>
-                  <div className="font-medium">Facebook</div>
-                  <div className="text-sm text-muted-foreground">
-                    {hasFacebookLinked ? 'Connected' : 'Not connected'}
+            {hasFacebookLinked && user.fbProfileUrl ? (
+              <div className="flex items-start gap-3 p-4 border rounded-lg bg-green-50 dark:bg-green-950/10 border-green-200 dark:border-green-800">
+                <BadgeCheck className="w-5 h-5 text-green-600 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <div>
+                    <h4 className="font-medium text-sm text-green-900 dark:text-green-100 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      You're fully verified!
+                    </h4>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      Your Facebook account is linked and your public profile is visible to others. You have a verified badge!
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="secondary" className="gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Account Linked
+                    </Badge>
+                    <Badge variant="secondary" className="gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Profile URL Added
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={user.fbProfileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-[#1877F2] hover:underline flex items-center gap-1"
+                    >
+                      <FaFacebook size={16} />
+                      View Profile
+                    </a>
+                    <span className="text-muted-foreground">•</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFacebookProfileDialog(true)}
+                      className="h-auto p-0 text-sm hover:bg-transparent hover:underline"
+                    >
+                      Update
+                    </Button>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {hasFacebookLinked && (
-                  <Badge variant="secondary" className="gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Verified
-                  </Badge>
-                )}
-                {hasFacebookLinked ? (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={unlinkFacebookMutation.isPending || (!hasPassword)}
-                      >
-                        <Unlink className="w-4 h-4 mr-2" />
-                        Unlink
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Unlink Facebook Account?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to unlink your Facebook account? You'll no longer be able to sign in with Facebook.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => unlinkFacebookMutation.mutate()}
-                        >
-                          Unlink
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleLinkFacebook}
-                  >
-                    <Link2 className="w-4 h-4 mr-2" />
-                    Link Account
-                  </Button>
-                )}
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-4 border rounded-lg bg-[#1877F2]/5 border-[#1877F2]/20">
+                  <Info className="text-[#1877F2] mt-0.5" size={20} />
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <h4 className="font-medium text-sm">Get verified with Facebook</h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Get a verified badge to build trust with buyers and sellers. Complete both steps below:
+                      </p>
+                    </div>
+                    <div className="space-y-2 pl-4 border-l-2 border-[#1877F2]/20">
+                      <div className="flex items-center gap-2">
+                        {hasFacebookLinked ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+                        )}
+                        <span className="text-sm">
+                          {hasFacebookLinked ? "Facebook account linked ✓" : "Link your Facebook account"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {user.fbProfileUrl ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />
+                        )}
+                        <span className="text-sm">
+                          {user.fbProfileUrl ? "Public profile URL added ✓" : "Add your public profile URL"}
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => setShowFacebookProfileDialog(true)}
+                      className="bg-[#1877F2] hover:bg-[#1877F2]/90"
+                    >
+                      <BadgeCheck className="w-4 h-4 mr-2" />
+                      {hasFacebookLinked && !user.fbProfileUrl ? "Add Profile URL" : "Start Verification"}
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {(!hasPassword) || (!hasPassword && !hasFacebookLinked) ? (
-              <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                ⚠️ You must have at least one sign-in method (password or linked account). Keep at least one option connected.
-              </div>
-            ) : null}
+            )}
           </CardContent>
         </Card>
 
@@ -294,6 +339,13 @@ export default function Settings() {
           </Link>
         </div>
       </main>
+
+      {/* Facebook Profile Dialog */}
+      <AddFacebookProfileDialog 
+        open={showFacebookProfileDialog} 
+        onOpenChange={setShowFacebookProfileDialog}
+        canSkip={false}
+      />
     </div>
   );
 }

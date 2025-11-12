@@ -118,6 +118,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save Facebook profile URL endpoint
+  app.post('/api/auth/facebook-profile', authMiddleware, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub || req.user?.userId || req.user?.sub;
+      const { profileUrl } = req.body;
+
+      if (!profileUrl || typeof profileUrl !== 'string') {
+        return res.status(400).json({ 
+          error: 'Profile URL is required' 
+        });
+      }
+
+      // Validate it's a Facebook URL
+      const isFacebookUrl = /^https?:\/\/(www\.)?(facebook|fb)\.com\/(profile\.php\?id=\d+|[^\/]+)/.test(profileUrl);
+      if (!isFacebookUrl) {
+        return res.status(400).json({ 
+          error: 'Invalid Facebook profile URL' 
+        });
+      }
+
+      // Update user's Facebook profile URL
+      await storage.updateUserFacebookProfile(userId, profileUrl);
+
+      res.json({ 
+        success: true,
+        message: 'Facebook profile URL saved successfully'
+      });
+
+    } catch (error) {
+      console.error('Error saving Facebook profile URL:', error);
+      res.status(500).json({ 
+        error: 'Failed to save Facebook profile URL' 
+      });
+    }
+  });
+
   const joinQueueLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 5, // Limit each IP to 5 requests per windowMs

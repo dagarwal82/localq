@@ -4,6 +4,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Package, QrCode, Users } from "lucide-react";
 import { AuthForm } from "../components/AuthForm";
+import { AddFacebookProfileDialog } from "../components/AddFacebookProfileDialog";
 import { Dialog, DialogContent } from "../components/ui/dialog";
 import { apiRequest } from "../lib/queryClient";
 import { GarageSaleLogo } from "../components/GarageSaleLogo";
@@ -11,6 +12,7 @@ import { GarageSaleLogo } from "../components/GarageSaleLogo";
 export default function Landing() {
   const [showAuth, setShowAuth] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [showFacebookProfileDialog, setShowFacebookProfileDialog] = useState(false);
   const [, setLocation] = useLocation();
 
   // Check if user is already authenticated (e.g., after OAuth redirect)
@@ -45,6 +47,20 @@ export default function Landing() {
 
   const handleAuthSuccess = () => {
     setShowAuth(false);
+    
+    // If it was a signup, show Facebook profile dialog
+    if (authMode === 'signup') {
+      setShowFacebookProfileDialog(true);
+    } else {
+      // For login, go directly to the redirect target
+      const redirectTarget = sessionStorage.getItem("postAuthRedirect") || "/home";
+      sessionStorage.removeItem("postAuthRedirect");
+      setLocation(redirectTarget);
+    }
+  };
+
+  const handleFacebookProfileSkip = () => {
+    // Navigate after skipping
     const redirectTarget = sessionStorage.getItem("postAuthRedirect") || "/home";
     sessionStorage.removeItem("postAuthRedirect");
     setLocation(redirectTarget);
@@ -143,6 +159,20 @@ export default function Landing() {
           <p data-testid="text-footer">SpaceVox - Simplifying Local Marketplace Sales</p>
         </div>
       </footer>
+
+      {/* Facebook Profile Dialog - shown after signup */}
+      <AddFacebookProfileDialog 
+        open={showFacebookProfileDialog} 
+        onOpenChange={(open) => {
+          setShowFacebookProfileDialog(open);
+          if (!open) {
+            // If dialog is closed (either by saving or skipping), navigate
+            handleFacebookProfileSkip();
+          }
+        }}
+        canSkip={true}
+        onSkip={handleFacebookProfileSkip}
+      />
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "../lib/queryClient";
 import { ProductCard } from "../components/ProductCard";
 import { AddProductDialog } from "../components/AddProductDialog";
+import { AddFacebookProfileDialog } from "../components/AddFacebookProfileDialog";
+import { FacebookVerificationBanner } from "../components/FacebookVerificationBanner";
 import { RecentlyViewed } from "../components/RecentlyViewedListings";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -61,6 +63,8 @@ export interface BuyerInterest {
   shareContact?: boolean; // buyer opted to share contact with owner
   pickupAddress?: string | null; // set by backend when shareAddress approved
   buyerId?: string; // The user account ID of the buyer for messaging
+  facebookId?: string | null; // Facebook user ID for verification badge
+  facebookProfileUrl?: string | null; // Facebook profile URL for linking
 }
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -70,6 +74,7 @@ export default function Home() {
   const [newListingName, setNewListingName] = useState("");
   const [newListingDesc, setNewListingDesc] = useState("");
   const [newListingAddress, setNewListingAddress] = useState("");
+  const [showFacebookProfileDialog, setShowFacebookProfileDialog] = useState(false);
   const [, setLocation] = useLocation();
 
   // Check authentication - redirect to landing if not authenticated
@@ -268,6 +273,14 @@ export default function Home() {
       <main className="container max-w-4xl mx-auto px-4 py-6">
         <RecentlyViewed />
         
+        {/* Facebook Verification Banner - only show if user doesn't have BOTH Facebook linked AND profile URL */}
+        {user && (!user.facebookId || !user.facebookProfileUrl) && (
+          <FacebookVerificationBanner 
+            onAddProfile={() => setShowFacebookProfileDialog(true)}
+            className="mb-6"
+          />
+        )}
+        
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="w-full grid grid-cols-2 mb-6">
             <TabsTrigger value="active" data-testid="tab-active">
@@ -399,6 +412,13 @@ export default function Home() {
         </Tabs>
       </main>
 
+      {/* Facebook Profile Dialog */}
+      <AddFacebookProfileDialog 
+        open={showFacebookProfileDialog} 
+        onOpenChange={setShowFacebookProfileDialog}
+        canSkip={true}
+      />
+
     </div>
   );
 }
@@ -491,6 +511,17 @@ function DetailsMenu() {
         </Button>
       </div>
     </details>
+  );
+}
+
+// Facebook Profile Dialog
+function FacebookProfileDialogWrapper({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  return (
+    <AddFacebookProfileDialog 
+      open={open} 
+      onOpenChange={onOpenChange}
+      canSkip={true}
+    />
   );
 }
 

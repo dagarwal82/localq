@@ -3,6 +3,7 @@ import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Clock, DollarSign, Mail, ChevronDown, ChevronUp, Check, X, EyeOff, MapPin, Share2, History, HelpCircle, MessageSquare } from "lucide-react";
+import { FaFacebook } from "react-icons/fa";
 import type { BuyerInterest } from "../pages/Home";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
@@ -93,6 +94,17 @@ export function BuyerQueueItem({ buyer, isNext, isOwner = false, isSelf = false,
             <p className={`text-base font-medium text-foreground ${(isMissed || isDenied || isWithdrawn) ? "line-through" : ""}`} data-testid={`text-buyer-name-${buyer.id}`}>
               {isOwner ? (buyer.buyerName || "Buyer") : (isSelf ? (buyer.buyerName || "You") : "Interested buyer")}
             </p>
+            {buyer.facebookId && (
+              <a
+                href={buyer.facebookProfileUrl || `https://facebook.com/${buyer.facebookId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[#1877F2] hover:underline"
+                title="Facebook verified user"
+              >
+                <FaFacebook size={16} />
+              </a>
+            )}
             {isNext && !isMissed && (
               <Badge variant="default" className="text-xs bg-warning text-warning-foreground" data-testid={`badge-next-${buyer.id}`}>
                 NEXT
