@@ -1,7 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "../lib/queryClient";
 import { useRoute, Link } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ProductCard } from "../components/ProductCard";
 import { ShareProductDialog } from "../components/ShareProductDialog";
 import { Input } from "../components/ui/input";
@@ -18,9 +18,11 @@ export default function ListingPage() {
   const [, params] = useRoute("/listing/:listingId");
   const listingId = params?.listingId || "";
   const { toast } = useToast();
+  const productRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   const searchParams = new URLSearchParams(window.location.search);
   const keyFromUrl = searchParams.get("k") || searchParams.get("key");
+  const productIdFromUrl = searchParams.get("product");
   
   const [keyInput, setKeyInput] = useState(keyFromUrl || "");
   const [needsKey, setNeedsKey] = useState(false);
@@ -180,6 +182,26 @@ export default function ListingPage() {
       addToViewHistory(listingId, listing.name);
     }
   }, [listing, listingId]);
+
+  // Scroll to specific product if product ID is in URL
+  useEffect(() => {
+    if (productIdFromUrl && items.length > 0) {
+      // Wait a bit for rendering to complete
+      const timer = setTimeout(() => {
+        const element = productRefs.current[productIdFromUrl];
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Briefly highlight the product
+          element.style.transition = 'background-color 0.5s';
+          element.style.backgroundColor = 'rgba(var(--warning), 0.1)';
+          setTimeout(() => {
+            element.style.backgroundColor = '';
+          }, 2000);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [productIdFromUrl, items.length]);
 
   const handleVerifyKey = () => {
     if (keyInput.trim()) {
@@ -345,14 +367,15 @@ export default function ListingPage() {
             {activeItems.length > 0 && (
               <div className="space-y-4" data-testid="section-available-items">
                 {activeItems.map((item) => (
-                  <ProductCard 
-                    key={item.id} 
-                    product={item}
-                    listing={listing}
-                    isOwner={false}
-                    onMarkSold={() => {}}
-                    onRemove={() => {}}
-                  />
+                  <div key={item.id} ref={(el) => productRefs.current[item.id] = el}>
+                    <ProductCard 
+                      product={item}
+                      listing={listing}
+                      isOwner={false}
+                      onMarkSold={() => {}}
+                      onRemove={() => {}}
+                    />
+                  </div>
                 ))}
               </div>
             )}
@@ -361,14 +384,15 @@ export default function ListingPage() {
               <div className="space-y-4" data-testid="section-sold-items">
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Sold Items</h2>
                 {soldItems.map((item) => (
-                  <ProductCard
-                    key={item.id}
-                    product={item}
-                    listing={listing}
-                    isOwner={false}
-                    onMarkSold={() => {}}
-                    onRemove={() => {}}
-                  />
+                  <div key={item.id} ref={(el) => productRefs.current[item.id] = el}>
+                    <ProductCard
+                      product={item}
+                      listing={listing}
+                      isOwner={false}
+                      onMarkSold={() => {}}
+                      onRemove={() => {}}
+                    />
+                  </div>
                 ))}
               </div>
             )}

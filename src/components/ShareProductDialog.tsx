@@ -11,14 +11,17 @@ interface ShareProductDialogProps {
   listingKey: string;
   listingName: string;
   variant?: "full" | "icon";
+  productId?: string; // Optional product ID to scroll to specific product
 }
 
-export function ShareProductDialog({ listingId, listingKey, listingName, variant = "full" }: ShareProductDialogProps) {
+export function ShareProductDialog({ listingId, listingKey, listingName, variant = "full", productId }: ShareProductDialogProps) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   
   const publicBase = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "");
-  const listingUrl = `${publicBase}/listing/${listingId}?k=${listingKey}`;
+  const listingUrl = productId 
+    ? `${publicBase}/listing/${listingId}?k=${listingKey}&product=${productId}`
+    : `${publicBase}/listing/${listingId}?k=${listingKey}`;
 
   const handleCopyLink = async () => {
     try {

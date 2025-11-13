@@ -731,6 +731,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
               listingId={listing.id}
               listingKey={listing.key}
               listingName={listing.name}
+              productId={product.id}
             />
           ) : (
             <div className="text-xs text-muted-foreground text-center py-2">

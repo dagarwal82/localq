@@ -6,6 +6,7 @@ import { AddProductDialog } from "../components/AddProductDialog";
 import { AddFacebookProfileDialog } from "../components/AddFacebookProfileDialog";
 import { FacebookVerificationBanner } from "../components/FacebookVerificationBanner";
 import { RecentlyViewed } from "../components/RecentlyViewedListings";
+import { ProductActivitySummary } from "../components/ProductActivitySummary";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Switch } from "../components/ui/switch";
@@ -78,6 +79,7 @@ export default function Home() {
   const [newListingIsPublic, setNewListingIsPublic] = useState(false);
   const [showFacebookProfileDialog, setShowFacebookProfileDialog] = useState(false);
   const [, setLocation] = useLocation();
+  const productRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Check authentication - redirect to landing if not authenticated
   const { data: user, isLoading: isAuthLoading } = useQuery({
@@ -242,6 +244,20 @@ export default function Home() {
   // Buyers are now fetched per ProductCard via /api/buying-queue/product/{id}
   const getBuyersForProduct = (_productId: string) => [];
 
+  // Function to scroll to a specific product
+  const handleNavigateToProduct = (productId: string) => {
+    const element = productRefs.current[productId];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Briefly highlight the product
+      element.style.transition = 'background-color 0.5s';
+      element.style.backgroundColor = 'rgba(var(--warning), 0.1)';
+      setTimeout(() => {
+        element.style.backgroundColor = '';
+      }, 2000);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -291,6 +307,12 @@ export default function Home() {
             className="mb-6"
           />
         )}
+
+        {/* Activity Summary - Shows products with pending buyers */}
+        <ProductActivitySummary 
+          products={activeProducts}
+          onNavigateToProduct={handleNavigateToProduct}
+        />
 
         {/* Public Listings Section - Hidden for now, needs layout work */}
         {/* {!publicListingsLoading && publicListings.length > 0 && (
@@ -414,18 +436,19 @@ export default function Home() {
                   });
                 }
                 return (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    listing={productListing}
-                    isOwner={true}
-                    onMarkSold={(id) => markSoldMutation.mutate(id)}
-                    onRemove={(id) => removeMutation.mutate(id)}
-                    onUpdate={() => {
-                      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-                      queryClient.invalidateQueries({ queryKey: ["/api/listings", "mine"] });
-                    }}
-                  />
+                  <div key={product.id} ref={(el) => productRefs.current[product.id] = el}>
+                    <ProductCard
+                      product={product}
+                      listing={productListing}
+                      isOwner={true}
+                      onMarkSold={(id) => markSoldMutation.mutate(id)}
+                      onRemove={(id) => removeMutation.mutate(id)}
+                      onUpdate={() => {
+                        queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/listings", "mine"] });
+                      }}
+                    />
+                  </div>
                 );
               })
             )}
@@ -443,14 +466,15 @@ export default function Home() {
               soldProducts.map(product => {
                 const productListing = listings.find(l => String(l.id) === String(product.listingId));
                 return (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    listing={productListing}
-                    isOwner={true}
-                    onMarkSold={() => {}}
-                    onRemove={() => {}}
-                  />
+                  <div key={product.id} ref={(el) => productRefs.current[product.id] = el}>
+                    <ProductCard
+                      product={product}
+                      listing={productListing}
+                      isOwner={true}
+                      onMarkSold={() => {}}
+                      onRemove={() => {}}
+                    />
+                  </div>
                 );
               })
             )}
