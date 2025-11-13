@@ -8,6 +8,7 @@ import { FacebookVerificationBanner } from "../components/FacebookVerificationBa
 import { RecentlyViewed } from "../components/RecentlyViewedListings";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Switch } from "../components/ui/switch";
 import { Package, RefreshCw, LogOut, MoreHorizontal, ChevronDown, MessageSquare, Settings } from "lucide-react";
 import { performLogout } from "../lib/authUtils";
 import { useToast } from "../hooks/use-toast";
@@ -74,6 +75,7 @@ export default function Home() {
   const [newListingName, setNewListingName] = useState("");
   const [newListingDesc, setNewListingDesc] = useState("");
   const [newListingAddress, setNewListingAddress] = useState("");
+  const [newListingIsPublic, setNewListingIsPublic] = useState(false);
   const [showFacebookProfileDialog, setShowFacebookProfileDialog] = useState(false);
   const [, setLocation] = useLocation();
 
@@ -107,12 +109,20 @@ export default function Home() {
     enabled: !!user, // Only fetch when user is authenticated
   });
 
+  // Get public listings
+  const { data: publicListings = [], isLoading: publicListingsLoading } = useQuery<Listing[]>({
+    queryKey: ["/api/listings", "public"],
+    queryFn: async () => apiRequest("GET", "/api/listings/public"),
+    enabled: !!user, // Only fetch when user is authenticated
+  });
+
   const createListingMutation = useMutation({
-    mutationFn: async () => apiRequest("POST", "/api/listings", { name: newListingName, description: newListingDesc, pickupAddress: newListingAddress || undefined }),
+    mutationFn: async () => apiRequest("POST", "/api/listings", { name: newListingName, description: newListingDesc, pickupAddress: newListingAddress || undefined, isPublic: newListingIsPublic }),
     onSuccess: () => {
       setNewListingName("");
       setNewListingDesc("");
       setNewListingAddress("");
+      setNewListingIsPublic(false);
       queryClient.invalidateQueries({ queryKey: ["/api/listings", "mine"] });
       toast({ title: "Listing created", description: "You can now add items to it." });
     },
@@ -280,6 +290,34 @@ export default function Home() {
             className="mb-6"
           />
         )}
+
+        {/* Public Listings Section */}
+        {!publicListingsLoading && publicListings.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4">Browse Public Listings</h2>
+            <div className="grid gap-3">
+              {publicListings.map((listing) => (
+                <a
+                  key={listing.id}
+                  href={`/listing/${listing.id}`}
+                  className="block p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-medium">{listing.name}</h3>
+                      {listing.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{listing.description}</p>
+                      )}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      View →
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="w-full grid grid-cols-2 mb-6">
@@ -327,6 +365,13 @@ export default function Home() {
                       data-testid="input-new-listing-address"
                     />
                     <p className="text-[11px] text-muted-foreground mt-1">Your pickup address stays hidden unless you explicitly share it with an approved buyer.</p>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <Label htmlFor="newListingPublic" className="text-sm font-medium">Make this listing public</Label>
+                      <p className="text-xs text-muted-foreground">Public listings can be accessed without a key</p>
+                    </div>
+                    <Switch id="newListingPublic" checked={newListingIsPublic} onCheckedChange={setNewListingIsPublic} />
                   </div>
                   <Button
                     onClick={() => createListingMutation.mutate()}

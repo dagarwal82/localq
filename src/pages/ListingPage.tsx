@@ -8,7 +8,8 @@ import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useToast } from "../hooks/use-toast";
-import { RefreshCw, ArrowLeft } from "lucide-react";
+import { RefreshCw, ArrowLeft, Globe } from "lucide-react";
+import { Badge } from "../components/ui/badge";
 import type { Product } from "./Home";
 import type { Listing } from "../types/listing";
 import { addToViewHistory } from "../lib/viewHistory";
@@ -36,6 +37,22 @@ export default function ListingPage() {
   const storedKey = sessionStorage.getItem(`listing_key_${listingId}`);
   const effectiveKey = keyFromUrl || storedKey;
 
+  // Check if the listing is public (no key required)
+  const { data: listingInfo, isLoading: checkingListingInfo } = useQuery<Listing>({
+    queryKey: ["/api/listings/info", listingId],
+    queryFn: async () => {
+      try {
+        return await apiRequest("GET", `/api/listings/${listingId}/info`);
+      } catch (e: any) {
+        // If listing doesn't exist or is private, continue with key flow
+        return null;
+      }
+    },
+    enabled: !!listingId,
+  });
+
+  const isPublicListing = listingInfo?.isPublic === true;
+
   // Check if user already has access to this listing
   const { data: hasAccess, isLoading: checkingAccess, refetch: refetchAccess } = useQuery<boolean>({
     queryKey: ["/api/listings", listingId, "has-access"],
@@ -52,7 +69,7 @@ export default function ListingPage() {
         return false;
       }
     },
-    enabled: !!listingId,
+    enabled: !!listingId && !isPublicListing, // Skip access check for public listings
   });
 
   // Grant access mutation (validates key and stores access server-side)
@@ -88,12 +105,21 @@ export default function ListingPage() {
   // Auto-grant access only when authenticated and a key is present
   useEffect(() => {
     const isAuthed = !!me?.id || !!me?.email;
+    // Skip key validation for public listings
+    if (isPublicListing) {
+      setNeedsKey(false);
+      return;
+    }
+    // Don't set needsKey while still checking if listing is public
+    if (checkingListingInfo) {
+      return;
+    }
     if (effectiveKey && hasAccess === false && isAuthed && !grantAccessMutation.isPending && !grantAccessMutation.isSuccess) {
       grantAccessMutation.mutate(effectiveKey);
     } else if (hasAccess === false && !effectiveKey && !checkingAccess && !grantAccessMutation.isPending) {
       setNeedsKey(true);
     }
-  }, [hasAccess, effectiveKey, checkingAccess, me]);
+  }, [hasAccess, effectiveKey, checkingAccess, me, isPublicListing, checkingListingInfo]);
 
   // Fetch listing details and products using public endpoint when key is available (works for anonymous users)
   const { data: publicListingData, error: publicError, isLoading: publicLoading } = useQuery<Listing & { products: Product[] }>({
@@ -122,13 +148,31 @@ export default function ListingPage() {
   const { data: privateListingData, isLoading: privateLoading } = useQuery<Listing & { products: Product[] }>({
     queryKey: ["/api/listings", listingId],
     queryFn: () => apiRequest("GET", `/api/listings/${listingId}`),
-    enabled: hasAccess === true && !effectiveKey,
+    enabled: hasAccess === true && !effectiveKey && !isPublicListing,
+  });
+
+  // Fetch public listing data without requiring a key
+  const { data: publicListingNoKeyData, isLoading: publicNoKeyLoading } = useQuery<Listing & { products: Product[] }>({
+    queryKey: ["/api/listings/public-no-key", listingId],
+    queryFn: async () => {
+      try {
+        return await apiRequest("GET", `/api/listings/public/${listingId}`);
+      } catch (e: any) {
+        const msg = String(e.message || "");
+        if (msg.startsWith("404")) {
+          throw new Error("NOT_FOUND");
+        }
+        throw new Error("GENERIC_ERROR");
+      }
+    },
+    enabled: isPublicListing && !!listingId,
+    retry: false,
   });
 
   // Use public or private data depending on what's available
-  const listing: Listing | undefined = publicListingData || privateListingData;
-  const items: Product[] = publicListingData?.products || privateListingData?.products || [];
-  const itemsLoading = effectiveKey ? publicLoading : privateLoading;
+  const listing: Listing | undefined = publicListingData || privateListingData || publicListingNoKeyData;
+  const items: Product[] = publicListingData?.products || privateListingData?.products || publicListingNoKeyData?.products || [];
+  const itemsLoading = effectiveKey ? publicLoading : (isPublicListing ? publicNoKeyLoading : privateLoading);
 
   // Track listing view when listing data is loaded
   useEffect(() => {
@@ -144,7 +188,7 @@ export default function ListingPage() {
   };
 
   // Only show loading spinner when checking access initially (not during key validation)
-  if (checkingAccess && !effectiveKey) {
+  if ((checkingAccess || checkingListingInfo) && !effectiveKey) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <RefreshCw className="w-8 h-8 animate-spin text-primary" />
@@ -152,8 +196,8 @@ export default function ListingPage() {
     );
   }
 
-  // Show key entry form ONLY if user doesn't have access AND no key is available
-  if (needsKey && hasAccess === false && !effectiveKey) {
+  // Show key entry form ONLY if user doesn't have access AND no key is available AND listing is NOT public
+  if (needsKey && hasAccess === false && !effectiveKey && !isPublicListing && !checkingListingInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -222,7 +266,14 @@ export default function ListingPage() {
               </Button>
             </Link>
             <div className="flex-1">
-              <h1 className="text-2xl font-bold">{listing?.name || "Listing"}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">{listing?.name || "Listing"}</h1>
+                {listing?.isPublic && (
+                  <Badge variant="secondary" className="text-sm">
+                    <Globe className="w-3 h-3 mr-1" /> Public
+                  </Badge>
+                )}
+              </div>
               {listing?.description && (
                 <p className="text-sm text-muted-foreground">{listing.description}</p>
               )}

@@ -29,9 +29,22 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const listings = pgTable("listings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  key: varchar("key").notNull().unique(),
+  accountId: varchar("account_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  pickupAddress: text("pickup_address"),
+  isPublic: boolean("is_public").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  listingId: varchar("listing_id").references(() => listings.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description").notNull(),
   price: integer("price").notNull(), // in cents
@@ -90,6 +103,8 @@ export const insertBuyerInterestSchema = createInsertSchema(buyerInterests).omit
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type Listing = typeof listings.$inferSelect;
+export type InsertListing = typeof listings.$inferInsert;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type ProductImage = typeof productImages.$inferSelect;
 export type Product = typeof products.$inferSelect & { images?: ProductImage[] };

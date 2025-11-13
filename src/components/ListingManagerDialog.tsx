@@ -6,7 +6,9 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent } from "./ui/card";
 import { Separator } from "./ui/separator";
-import { Plus, Trash2, FolderOpen } from "lucide-react";
+import { Switch } from "./ui/switch";
+import { Badge } from "./ui/badge";
+import { Plus, Trash2, FolderOpen, Globe } from "lucide-react";
 import { apiRequest, queryClient } from "../lib/queryClient";
 import type { Listing } from "../types/listing";
 import { ShareProductDialog } from "./ShareProductDialog";
@@ -21,10 +23,12 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
   const [description, setDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [pickupAddress, setPickupAddress] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editPickupAddress, setEditPickupAddress] = useState("");
+  const [editIsPublic, setEditIsPublic] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -39,13 +43,14 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/listings", { name, description, pickupAddress: pickupAddress || undefined });
+      return apiRequest("POST", "/api/listings", { name, description, pickupAddress: pickupAddress || undefined, isPublic });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/listings", "mine"] });
       setName("");
       setDescription("");
       setPickupAddress("");
+      setIsPublic(false);
     },
   });
   const updateMutation = useMutation({
@@ -55,6 +60,7 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
         name: editName || undefined,
         description: editDescription || undefined,
         pickupAddress: editPickupAddress || undefined,
+        isPublic: editIsPublic,
       });
     },
     onSuccess: () => {
@@ -63,6 +69,7 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
       setEditName("");
       setEditDescription("");
       setEditPickupAddress("");
+      setEditIsPublic(false);
     },
   });
 
@@ -71,6 +78,7 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
     setEditName(lst.name);
     setEditDescription(lst.description || "");
     setEditPickupAddress(lst.pickupAddress || "");
+    setEditIsPublic(lst.isPublic || false);
   };
 
   const handleUpdate = async () => {
@@ -88,6 +96,7 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
     setEditName("");
     setEditDescription("");
     setEditPickupAddress("");
+    setEditIsPublic(false);
   };
 
 
@@ -149,6 +158,13 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
             <Label htmlFor="listingPickup" className="mt-2">Pickup Address (optional)</Label>
             <Input id="listingPickup" value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} placeholder="123 Main St" />
             <p className="text-[11px] text-primary font-bold">Address is shared only to the buyers you approve.</p>
+            <div className="flex items-center justify-between mt-3 p-3 border rounded-lg">
+              <div className="flex-1">
+                <Label htmlFor="isPublic" className="text-sm font-medium">Make this listing public</Label>
+                <p className="text-xs text-muted-foreground">Public listings can be accessed without a key</p>
+              </div>
+              <Switch id="isPublic" checked={isPublic} onCheckedChange={setIsPublic} />
+            </div>
             <Button onClick={handleCreate} disabled={creating || !name.trim()} className="mt-2">
               <Plus className="w-4 h-4 mr-2" /> Create Listing
             </Button>
@@ -173,6 +189,13 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
                         <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
                         <Label className="text-xs">Pickup Address</Label>
                         <Input value={editPickupAddress} onChange={(e) => setEditPickupAddress(e.target.value)} placeholder="123 Main St" />
+                        <div className="flex items-center justify-between mt-2 p-2 border rounded">
+                          <div className="flex-1">
+                            <Label htmlFor={`editPublic-${lst.id}`} className="text-xs font-medium">Public listing</Label>
+                            <p className="text-[10px] text-muted-foreground">No key required</p>
+                          </div>
+                          <Switch id={`editPublic-${lst.id}`} checked={editIsPublic} onCheckedChange={setEditIsPublic} />
+                        </div>
                         <div className="flex gap-2 pt-1">
                           <Button size="sm" onClick={handleUpdate} disabled={updating || !editName.trim()}>
                             {updating ? "Saving..." : "Save"}
@@ -183,8 +206,15 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
                     ) : (
                       <>
                         <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{lst.name}</p>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{lst.name}</p>
+                              {lst.isPublic && (
+                                <Badge variant="secondary" className="text-xs">
+                                  <Globe className="w-3 h-3 mr-1" /> Public
+                                </Badge>
+                              )}
+                            </div>
                             {lst.description && <p className="text-sm text-muted-foreground">{lst.description}</p>}
                             {lst.pickupAddress && (
                               <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Pickup:</span> {lst.pickupAddress}</p>
