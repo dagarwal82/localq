@@ -39,10 +39,10 @@ export default function ListingPage() {
 
   // Check if the listing is public (no key required)
   const { data: listingInfo, isLoading: checkingListingInfo } = useQuery<Listing>({
-    queryKey: ["/api/listings/info", listingId],
+    queryKey: ["/api/listings", listingId],
     queryFn: async () => {
       try {
-        return await apiRequest("GET", `/api/listings/${listingId}/info`);
+        return await apiRequest("GET", `/api/listings/${listingId}`);
       } catch (e: any) {
         // If listing doesn't exist or is private, continue with key flow
         return null;

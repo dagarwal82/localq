@@ -82,7 +82,6 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
   const [editingInterest, setEditingInterest] = useState(false);
   const [pickupTime, setPickupTime] = useState("");
   const [offerPrice, setOfferPrice] = useState("0");
-  const [isFree, setIsFree] = useState(false);
   const [hideOffer, setHideOffer] = useState(false);
   const [shareContact, setShareContact] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -267,7 +266,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       const created = await apiRequest("POST", "/api/buying-queue", {
         productId: product.id,
         pickupTime: pickupDate,
-  offerPrice: isFree ? null : priceNumber,
+        offerPrice: priceNumber,
         hideMe: hideOffer,
         shareContact: shareContact,
       });
@@ -278,10 +277,9 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       setJustWithdrew(false);
       setInterestOpen(false);
       setPickupTime("");
-    setOfferPrice("0");
-    setIsFree(false);
-    setHideOffer(false);
-    setShareContact(false);
+      setOfferPrice("0");
+      setHideOffer(false);
+      setShareContact(false);
       queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
       toast({
         title: "Interest registered",
@@ -309,7 +307,6 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
         .slice(0, 16);
       setPickupTime(localDateTime);
       setOfferPrice(editTarget.offerPrice ? (editTarget.offerPrice).toString() : "0");
-      setIsFree(!editTarget.offerPrice);
       setEditingInterest(true);
       setInterestOpen(true);
     }
@@ -340,7 +337,7 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
         id: editTarget.id,
         productId: product.id,
         pickupTime: pickupDate,
-        offerPrice: isFree ? null : priceNumber,
+        offerPrice: priceNumber,
         hideMe: hideOffer,
         shareContact: shareContact,
         status: 'PENDING', // remain pending on edit
@@ -352,10 +349,9 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
       setInterestOpen(false);
       setEditingInterest(false);
       setPickupTime("");
-    setOfferPrice("0");
-    setIsFree(false);
-    setHideOffer(false);
-    setShareContact(false);
+      setOfferPrice("0");
+      setHideOffer(false);
+      setShareContact(false);
       queryClient.invalidateQueries({ queryKey: ["/api/buying-queue/product", product.id] });
       
       if (isApproved || isDenied) {
@@ -881,7 +877,6 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
           setEditingInterest(false);
           setPickupTime("");
           setOfferPrice("0");
-          setIsFree(false);
           setHideOffer(false);
         }
       }}>
@@ -901,24 +896,18 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
               />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="isFree">Is Free?</Label>
-                <Switch id="isFree" checked={isFree} onCheckedChange={setIsFree} />
+              <div className="space-y-1">
+                <Label htmlFor="offerPrice">Offer Price ($)</Label>
+                <Input
+                  id="offerPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={offerPrice}
+                  onChange={(e) => setOfferPrice(e.target.value)}
+                  data-testid={`input-offer-${product.id}`}
+                />
               </div>
-              {!isFree && (
-                <div className="space-y-1">
-                  <Label htmlFor="offerPrice">Offer Price ($)</Label>
-                  <Input
-                    id="offerPrice"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={offerPrice}
-                    onChange={(e) => setOfferPrice(e.target.value)}
-                    data-testid={`input-offer-${product.id}`}
-                  />
-                </div>
-              )}
               <div className="mt-2 space-y-1">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="hideOffer">Hide my offer?</Label>
@@ -948,7 +937,6 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                   setEditingInterest(false);
                   setPickupTime("");
                   setOfferPrice("0");
-                  setIsFree(false);
                 }}
                 data-testid={`button-cancel-interest-${product.id}`}
               >

@@ -291,8 +291,8 @@ export default function Home() {
           />
         )}
 
-        {/* Public Listings Section */}
-        {!publicListingsLoading && publicListings.length > 0 && (
+        {/* Public Listings Section - Hidden for now, needs layout work */}
+        {/* {!publicListingsLoading && publicListings.length > 0 && (
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Browse Public Listings</h2>
             <div className="grid gap-3">
@@ -317,7 +317,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-        )}
+        )} */}
         
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="w-full grid grid-cols-2 mb-6">

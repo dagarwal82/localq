@@ -22,11 +22,7 @@ const buyerFormSchema = z.object({
   email: z.string().email("Please enter a valid email address").optional().or(z.literal("")),
   smsOptIn: z.boolean().optional(),
   pickupTime: z.string().min(1, "Pickup time is required"),
-  offerPrice: z.number().min(0).optional().nullable(),
-  isFree: z.boolean().optional(),
-}).refine((data) => data.isFree || (data.offerPrice !== null && data.offerPrice !== undefined), {
-  message: "Offer price is required when not looking for free",
-  path: ["offerPrice"],
+  offerPrice: z.number().min(0, "Offer price must be 0 or greater").optional().nullable(),
 }).refine((data) => data.phone || data.email, {
   message: "Please provide at least one contact method",
   path: ["phone"],
@@ -46,17 +42,14 @@ export function AddBuyerDialog({ productId, onAddBuyer }: AddBuyerDialogProps) {
       smsOptIn: false,
       pickupTime: "",
       offerPrice: null,
-      isFree: false,
     },
   });
-
-  const isFree = form.watch("isFree");
 
   const handleSubmit = (values: BuyerFormValues) => {
     const pickupDate = new Date(values.pickupTime);
     onAddBuyer({
       pickupTime: pickupDate.toISOString(),
-      offerPrice: values.isFree ? 0 : (values.offerPrice !== null && values.offerPrice !== undefined ? Math.round(values.offerPrice * 100) : 0),
+      offerPrice: (values.offerPrice !== null && values.offerPrice !== undefined ? Math.round(values.offerPrice * 100) : 0),
       status: "active",
       buyerEmail: values.email || undefined,
       hideMe: false,
@@ -157,52 +150,26 @@ export function AddBuyerDialog({ productId, onAddBuyer }: AddBuyerDialogProps) {
 
             <FormField
               control={form.control}
-              name="isFree"
+              name="offerPrice"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Looking for Free</FormLabel>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
-                          if (checked) {
-                            form.setValue("offerPrice", null);
-                          }
-                        }}
-                        data-testid="switch-free"
-                      />
-                    </FormControl>
-                  </div>
+                  <FormLabel>Offer Price ($)</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={field.value ?? ""}
+                      onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                      data-testid="input-offer-price"
+                    />
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
-
-            {!isFree && (
-              <FormField
-                control={form.control}
-                name="offerPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Offer Price ($)</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                        data-testid="input-offer-price"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
 
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} className="flex-1" data-testid="button-cancel-buyer">
