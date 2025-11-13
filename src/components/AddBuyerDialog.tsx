@@ -4,12 +4,54 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { UserPlus } from "lucide-react";
 import type { BuyerInterest } from "@/pages/Home";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+
+// Helper function to get minimum pickup time (10 minutes from now, rounded to 10-minute interval)
+const getMinPickupTime = () => {
+  const now = new Date();
+  // Add 10 minutes
+  now.setMinutes(now.getMinutes() + 10);
+  // Round up to nearest 10 minute interval
+  const minutes = now.getMinutes();
+  const roundedMinutes = Math.ceil(minutes / 10) * 10;
+  now.setMinutes(roundedMinutes);
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+  
+  // Convert to local datetime-local format
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const mins = String(now.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+};
+
+// Helper to round a datetime string to nearest 10-minute interval
+const roundToTenMinutes = (datetimeStr: string) => {
+  if (!datetimeStr) return datetimeStr;
+  
+  const date = new Date(datetimeStr);
+  const minutes = date.getMinutes();
+  const roundedMinutes = Math.round(minutes / 10) * 10;
+  date.setMinutes(roundedMinutes);
+  date.setSeconds(0);
+  date.setMilliseconds(0);
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const mins = String(date.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+};
 
 interface AddBuyerDialogProps {
   productId: string;
@@ -141,8 +183,21 @@ export function AddBuyerDialog({ productId, onAddBuyer }: AddBuyerDialogProps) {
                 <FormItem>
                   <FormLabel>Pickup Time</FormLabel>
                   <FormControl>
-                    <Input {...field} type="datetime-local" data-testid="input-pickup-time" />
+                    <Input 
+                      {...field} 
+                      type="datetime-local" 
+                      min={getMinPickupTime()}
+                      step="600"
+                      onChange={(e) => {
+                        const rounded = roundToTenMinutes(e.target.value);
+                        field.onChange(rounded);
+                      }}
+                      data-testid="input-pickup-time" 
+                    />
                   </FormControl>
+                  <FormDescription className="text-xs">
+                    Must be at least 10 minutes from now, in 10-minute intervals
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

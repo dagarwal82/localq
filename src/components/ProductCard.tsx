@@ -24,6 +24,48 @@ import { AuthForm } from "./AuthForm";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 
+// Helper function to get minimum pickup time (10 minutes from now, rounded to 10-minute interval)
+const getMinPickupTime = () => {
+  const now = new Date();
+  // Add 10 minutes
+  now.setMinutes(now.getMinutes() + 10);
+  // Round up to nearest 10 minute interval
+  const minutes = now.getMinutes();
+  const roundedMinutes = Math.ceil(minutes / 10) * 10;
+  now.setMinutes(roundedMinutes);
+  now.setSeconds(0);
+  now.setMilliseconds(0);
+  
+  // Convert to local datetime-local format
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const mins = String(now.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+};
+
+// Helper to round a datetime string to nearest 10-minute interval
+const roundToTenMinutes = (datetimeStr: string) => {
+  if (!datetimeStr) return datetimeStr;
+  
+  const date = new Date(datetimeStr);
+  const minutes = date.getMinutes();
+  const roundedMinutes = Math.round(minutes / 10) * 10;
+  date.setMinutes(roundedMinutes);
+  date.setSeconds(0);
+  date.setMilliseconds(0);
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const mins = String(date.getMinutes()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+};
+
 interface ProductCardProps {
   product: Product;
   listing?: Listing;
@@ -892,9 +934,15 @@ export function ProductCard({ product, listing, isOwner = false, onMarkSold, onR
                 id="pickupTime"
                 type="datetime-local"
                 value={pickupTime}
-                onChange={(e) => setPickupTime(e.target.value)}
+                onChange={(e) => {
+                  const rounded = roundToTenMinutes(e.target.value);
+                  setPickupTime(rounded);
+                }}
+                min={getMinPickupTime()}
+                step="600"
                 data-testid={`input-pickup-${product.id}`}
               />
+              <p className="text-xs text-muted-foreground">Must be at least 10 minutes from now, in 10-minute intervals</p>
             </div>
             <div className="space-y-2">
               <div className="space-y-1">

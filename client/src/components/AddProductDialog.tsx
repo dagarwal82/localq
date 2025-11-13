@@ -83,7 +83,7 @@ export function AddProductDialog({ onAddProduct, triggerButtonOverride }: AddPro
 
       toast({
         title: "Product added",
-        description: "Your listing has been created successfully",
+        description: "Your item has been added successfully",
       });
   onAddProduct(productRes);
       form.reset();
