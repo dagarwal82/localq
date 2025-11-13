@@ -49,14 +49,14 @@ export default function Landing() {
     setShowAuth(false);
     
     // If it was a signup, show Facebook profile dialog
-    if (authMode === 'signup') {
-      setShowFacebookProfileDialog(true);
-    } else {
+   // if (authMode === 'signup') {
+    //  setShowFacebookProfileDialog(true);
+   // } else {
       // For login, go directly to the redirect target
       const redirectTarget = sessionStorage.getItem("postAuthRedirect") || "/home";
       sessionStorage.removeItem("postAuthRedirect");
       setLocation(redirectTarget);
-    }
+   // }
   };
 
   const handleFacebookProfileSkip = () => {

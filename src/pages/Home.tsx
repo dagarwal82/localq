@@ -284,7 +284,8 @@ export default function Home() {
         <RecentlyViewed />
         
         {/* Facebook Verification Banner - only show if user doesn't have BOTH Facebook linked AND profile URL */}
-        {user && (!user.facebookId || !user.fbProfileUrl) && (
+        
+        {user && user.emailVerified && (!user.facebookId || !user.fbProfileUrl) && (
           <FacebookVerificationBanner 
             onAddProfile={() => setShowFacebookProfileDialog(true)}
             className="mb-6"

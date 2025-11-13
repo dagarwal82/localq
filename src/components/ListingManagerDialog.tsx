@@ -1,6 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "./ui/alert-dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -31,6 +41,7 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
   const [editIsPublic, setEditIsPublic] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const { data: listings = [], isLoading } = useQuery<Listing[]>({
     queryKey: ["/api/listings", "mine"],
@@ -137,6 +148,13 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
     }
   };
 
+  const handleConfirmDelete = () => {
+    if (confirmDeleteId) {
+      deleteMutation.mutate(confirmDeleteId);
+      setConfirmDeleteId(null);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -233,7 +251,7 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
                             <Button 
                               variant="destructive" 
                               size="icon" 
-                              onClick={() => deleteMutation.mutate(lst.id)}
+                              onClick={() => setConfirmDeleteId(lst.id)}
                               disabled={deletingId === lst.id}
                               title={deletingId === lst.id ? "Deleting..." : "Delete"}
                             >
@@ -254,6 +272,23 @@ export function ListingManagerDialog({ triggerClassName }: ListingManagerDialogP
           </div>
         </div>
       </DialogContent>
+
+      <AlertDialog open={!!confirmDeleteId} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Listing</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this listing? This will permanently delete the listing and all its products. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
